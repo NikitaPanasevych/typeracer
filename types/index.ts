@@ -38,3 +38,5 @@ export type PlayerLiveState = {
 export type LeaderboardRow = PlayerLiveState & {
   position: number | null
 }
+
+export type PusherPlayerUpdatePayload = PlayerLiveState
