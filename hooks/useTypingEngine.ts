@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { toast } from 'sonner'
 import {
   getDiffResults,
   getCorrectWordCount,
@@ -61,6 +62,7 @@ export function useTypingEngine({ sentence, roundId, isRoundActive }: Props): Ty
 
       if (clamped === sentence) {
         setIsFinished(true)
+        toast.success('You finished!')
       }
     },
     [sentence, isRoundActive, isFinished]

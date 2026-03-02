@@ -12,6 +12,7 @@ import { TypingInput } from '@/components/game/TypingInput'
 import { Leaderboard } from '@/components/game/Leaderboard'
 import { JoinModal } from '@/components/game/JoinModal'
 import { StatsCard } from '@/components/game/StatsCard'
+import { GameLoadingSkeleton } from '@/components/game/LoadingSkeleton'
 import type { PlayerLiveState } from '@/types'
 
 export default function HomePage() {
@@ -46,6 +47,15 @@ export default function HomePage() {
 
   const isLoading = playerLoading || roundLoading
 
+  if (isLoading && !isJoined) {
+    return (
+      <main className="min-h-screen p-8 max-w-5xl mx-auto space-y-8">
+        <h1 className="text-2xl font-bold">TypeRacer</h1>
+        <GameLoadingSkeleton />
+      </main>
+    )
+  }
+
   if (error) {
     return (
       <main className="min-h-screen flex items-center justify-center">
@@ -75,7 +85,11 @@ export default function HomePage() {
             onType={handleChange}
           />
         ) : (
-          !isLoading && <p className="text-slate-500">No active round. Starting soon...</p>
+          !isLoading && isJoined && (
+            <div className="text-center py-8">
+              <p className="text-slate-500 text-lg">Next round starting soon...</p>
+            </div>
+          )
         )}
         <Suspense>
           <Leaderboard localPlayerId={localPlayerId} />

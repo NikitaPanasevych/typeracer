@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { toast } from 'sonner'
 
 type Props = {
   roundId: string | null
@@ -29,6 +30,8 @@ export function useRoundResults({ roundId, playerId, isRoundActive, wpm, accurac
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ roundId, playerId, wpm, accuracy, finishedTyping: isFinished }),
-    }).catch(console.error)
+    }).catch(() => {
+      toast.error('Failed to save results')
+    })
   }, [isRoundActive, isFinished, roundId, playerId, wpm, accuracy])
 }

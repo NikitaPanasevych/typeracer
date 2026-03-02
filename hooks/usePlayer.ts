@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import { useGameStore } from '@/lib/store/gameStore'
 import type { Player } from '@/types'
 
@@ -78,6 +79,13 @@ export function usePlayer(): PlayerHookState {
 
     setPlayer(resolvedPlayer)
     setLocalPlayer(resolvedPlayer.id, resolvedPlayer.username)
+
+    if (existing) {
+      toast.info(`Welcome back, ${resolvedPlayer.username}!`)
+    } else {
+      toast.success(`Welcome, ${resolvedPlayer.username}!`)
+    }
+
     return {}
   }
 

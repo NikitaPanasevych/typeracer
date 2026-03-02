@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { toast } from 'sonner'
 import { pusherClient } from '@/lib/pusher/client'
 import type { Round } from '@/types'
 
@@ -31,13 +32,18 @@ export function useRound() {
       const res = await fetch('/api/round/current')
       if (!res.ok) throw new Error('Failed to fetch round')
       const { round } = await res.json() as { round: Round | null }
-      setState((prev) => ({
-        ...prev,
-        round,
-        secondsLeft: computeSecondsLeft(round),
-        isLoading: false,
-        error: null,
-      }))
+      setState((prev) => {
+        if (round && prev.round?.id && round.id !== prev.round.id) {
+          toast.info('New round started!')
+        }
+        return {
+          ...prev,
+          round,
+          secondsLeft: computeSecondsLeft(round),
+          isLoading: false,
+          error: null,
+        }
+      })
     } catch {
       setState((prev) => ({ ...prev, isLoading: false, error: 'Could not load round' }))
     }
