@@ -1,10 +1,20 @@
 'use client'
 
 import { useRound } from '@/hooks/useRound'
+import { useTypingEngine } from '@/hooks/useTypingEngine'
 import { Countdown } from '@/components/game/Countdown'
+import { TypingInput } from '@/components/game/TypingInput'
 
 export default function HomePage() {
   const { round, secondsLeft, isLoading, error } = useRound()
+
+  const isRoundActive = !!round && secondsLeft > 0
+
+  const { typedText, wpm, accuracy, isFinished, charResults, handleChange } = useTypingEngine({
+    sentence: round?.sentence ?? '',
+    roundId: round?.id ?? '',
+    isRoundActive,
+  })
 
   if (error) {
     return (
@@ -15,11 +25,22 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen p-8 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-8">TypeRacer</h1>
+    <main className="min-h-screen p-8 max-w-4xl mx-auto space-y-8">
+      <h1 className="text-2xl font-bold">TypeRacer</h1>
       <Countdown secondsLeft={secondsLeft} isLoading={isLoading} />
-      {round && (
-        <p className="mt-8 text-xl text-slate-700">{round.sentence}</p>
+      {round ? (
+        <TypingInput
+          sentence={round.sentence}
+          typedText={typedText}
+          charResults={charResults}
+          wpm={wpm}
+          accuracy={accuracy}
+          isFinished={isFinished}
+          isRoundActive={isRoundActive}
+          onType={handleChange}
+        />
+      ) : (
+        !isLoading && <p className="text-slate-500">No active round. Starting soon...</p>
       )}
     </main>
   )
