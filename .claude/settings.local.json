@@ -5,7 +5,8 @@
       "Bash(npm run typescript:*)",
       "Bash(npm run:*)",
       "Bash(xargs:*)",
-      "mcp__chakra-ui__get_component_example"
+      "mcp__chakra-ui__get_component_example",
+      "Bash(npm install:*)"
     ]
   }
 }
