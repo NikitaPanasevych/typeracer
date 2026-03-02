@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, useEffect } from 'react'
 import { useRound } from '@/hooks/useRound'
 import { useTypingEngine } from '@/hooks/useTypingEngine'
 import { useRealtimePlayers } from '@/hooks/useRealtimePlayers'
@@ -20,6 +20,11 @@ export default function HomePage() {
   const { round, secondsLeft, isLoading: roundLoading, error } = useRound()
   const localPlayerId = useGameStore((s) => s.localPlayerId)
   const localUsername = useGameStore((s) => s.localUsername)
+  const setCurrentRound = useGameStore((s) => s.setCurrentRound)
+
+  useEffect(() => {
+    setCurrentRound(round ?? null)
+  }, [round, setCurrentRound])
 
   const isRoundActive = !!round && secondsLeft > 0
 
@@ -49,8 +54,16 @@ export default function HomePage() {
 
   if (isLoading && !isJoined) {
     return (
-      <main className="min-h-screen p-8 max-w-5xl mx-auto space-y-8">
-        <h1 className="text-2xl font-bold">TypeRacer</h1>
+      <main className="min-h-screen px-6 py-10 max-w-4xl mx-auto">
+        <header className="mb-10 flex items-center gap-4">
+          <div className="w-1 h-8 rounded-full" style={{ background: 'var(--apex-gold)' }} />
+          <span
+            className="font-display tracking-widest"
+            style={{ fontSize: '2rem', color: 'var(--apex-text)', letterSpacing: '0.15em' }}
+          >
+            TYPERACER
+          </span>
+        </header>
         <GameLoadingSkeleton />
       </main>
     )
@@ -59,7 +72,17 @@ export default function HomePage() {
   if (error) {
     return (
       <main className="min-h-screen flex items-center justify-center">
-        <p className="text-red-500">{error}</p>
+        <div
+          className="px-6 py-4 rounded-lg text-sm"
+          style={{
+            background: 'rgba(248,113,113,0.08)',
+            border: '1px solid rgba(248,113,113,0.25)',
+            color: 'var(--apex-red)',
+            fontFamily: 'var(--font-space), monospace',
+          }}
+        >
+          {error}
+        </div>
       </main>
     )
   }
@@ -67,33 +90,75 @@ export default function HomePage() {
   return (
     <>
       <JoinModal open={!playerLoading && !isJoined} onJoin={join} />
-      <main className="min-h-screen p-8 max-w-5xl mx-auto space-y-8">
-        <div className="flex items-start justify-between">
-          <h1 className="text-2xl font-bold">TypeRacer</h1>
-          {player && <StatsCard player={player} />}
-        </div>
-        <Countdown secondsLeft={secondsLeft} isLoading={isLoading} />
-        {round ? (
-          <TypingInput
-            sentence={round.sentence}
-            typedText={typedText}
-            charResults={charResults}
-            wpm={wpm}
-            accuracy={accuracy}
-            isFinished={isFinished}
-            isRoundActive={isRoundActive && isJoined}
-            onType={handleChange}
-          />
-        ) : (
-          !isLoading && isJoined && (
-            <div className="text-center py-8">
-              <p className="text-slate-500 text-lg">Next round starting soon...</p>
+
+      <main className="min-h-screen px-6 py-10 max-w-4xl mx-auto">
+        <header className="mb-10 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-1 h-8 rounded-full" style={{ background: 'var(--apex-gold)' }} />
+            <div>
+              <p
+                className="text-[10px] font-semibold tracking-[0.3em] uppercase"
+                style={{ color: 'var(--apex-gold)', opacity: 0.7 }}
+              >
+                Live Multiplayer
+              </p>
+              <span
+                className="font-display leading-none"
+                style={{ fontSize: '2rem', color: 'var(--apex-text)', letterSpacing: '0.12em' }}
+              >
+                TYPERACER
+              </span>
             </div>
-          )
-        )}
-        <Suspense>
-          <Leaderboard localPlayerId={localPlayerId} />
-        </Suspense>
+          </div>
+
+          {player && <StatsCard player={player} />}
+        </header>
+
+        <div className="space-y-8">
+          <Countdown secondsLeft={secondsLeft} isLoading={isLoading} />
+
+          {round ? (
+            <TypingInput
+              sentence={round.sentence}
+              typedText={typedText}
+              charResults={charResults}
+              wpm={wpm}
+              accuracy={accuracy}
+              isFinished={isFinished}
+              isRoundActive={isRoundActive && isJoined}
+              onType={handleChange}
+            />
+          ) : (
+            !isLoading && isJoined && (
+              <div
+                className="flex items-center justify-center py-12 rounded-lg"
+                style={{
+                  border: '1px solid var(--apex-border)',
+                  background: 'var(--apex-surface)',
+                }}
+              >
+                <div className="text-center space-y-2">
+                  <p
+                    className="text-xs font-semibold tracking-[0.25em] uppercase"
+                    style={{ color: 'var(--apex-gold)', opacity: 0.6 }}
+                  >
+                    Standby
+                  </p>
+                  <p
+                    className="text-sm tracking-wide"
+                    style={{ color: 'var(--apex-text-dim)', fontFamily: 'var(--font-space), monospace' }}
+                  >
+                    Next round starting soon…
+                  </p>
+                </div>
+              </div>
+            )
+          )}
+
+          <Suspense>
+            <Leaderboard localPlayerId={localPlayerId} />
+          </Suspense>
+        </div>
       </main>
     </>
   )

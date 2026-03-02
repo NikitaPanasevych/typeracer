@@ -1,17 +1,37 @@
-import { Skeleton } from '@/components/ui/skeleton'
-
 export function GameLoadingSkeleton() {
   return (
-    <div className="space-y-8">
-      <div className="text-center space-y-2">
-        <Skeleton className="h-4 w-24 mx-auto" />
-        <Skeleton className="h-12 w-32 mx-auto" />
+    <div className="space-y-10 animate-fade-in">
+      <div className="flex flex-col items-center gap-2">
+        <div
+          className="h-3 w-24 rounded animate-pulse"
+          style={{ background: 'var(--apex-border-bright)' }}
+        />
+        <div
+          className="h-20 w-44 rounded animate-pulse"
+          style={{ background: 'var(--apex-border-bright)' }}
+        />
+        <div
+          className="h-0.5 w-36 rounded-full animate-pulse"
+          style={{ background: 'var(--apex-border-bright)' }}
+        />
       </div>
-      <Skeleton className="h-24 w-full rounded-lg" />
+
+      <div
+        className="h-36 rounded-lg animate-pulse"
+        style={{ background: 'var(--apex-surface)' }}
+      />
+
       <div className="space-y-2">
-        <Skeleton className="h-10 w-full" />
+        <div
+          className="h-10 rounded animate-pulse"
+          style={{ background: 'var(--apex-surface)' }}
+        />
         {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-12 w-full" />
+          <div
+            key={i}
+            className="h-12 rounded animate-pulse"
+            style={{ background: 'var(--apex-surface)', opacity: 1 - i * 0.2 }}
+          />
         ))}
       </div>
     </div>

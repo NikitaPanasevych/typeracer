@@ -1,26 +1,80 @@
 import type { Player } from '@/types'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export function StatsCard({ player }: { player: Player }) {
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base">Your Stats — {player.username}</CardTitle>
-      </CardHeader>
-      <CardContent className="grid grid-cols-3 gap-4 text-center">
-        <div>
-          <p className="text-2xl font-bold">{player.totalRaces}</p>
-          <p className="text-xs text-slate-500">Races</p>
+    <div
+      className="flex items-center gap-px rounded-lg overflow-hidden"
+      style={{ border: '1px solid var(--apex-border)', background: 'var(--apex-surface)' }}
+    >
+      <div
+        className="px-3 py-2 flex flex-col items-center min-w-[56px]"
+        style={{ borderRight: '1px solid var(--apex-border)' }}
+      >
+        <span
+          className="font-display leading-none"
+          style={{ fontSize: '1.5rem', color: 'var(--apex-text)' }}
+        >
+          {player.totalRaces}
+        </span>
+        <span
+          className="text-[10px] font-semibold tracking-widest uppercase mt-0.5"
+          style={{ color: 'var(--apex-text-dim)' }}
+        >
+          Races
+        </span>
+      </div>
+
+      <div
+        className="px-3 py-2 flex flex-col items-center min-w-[56px]"
+        style={{ borderRight: '1px solid var(--apex-border)' }}
+      >
+        <span
+          className="font-display leading-none"
+          style={{ fontSize: '1.5rem', color: 'var(--apex-gold)' }}
+        >
+          {player.bestWpm}
+        </span>
+        <span
+          className="text-[10px] font-semibold tracking-widest uppercase mt-0.5"
+          style={{ color: 'var(--apex-text-dim)' }}
+        >
+          Best
+        </span>
+      </div>
+
+      <div className="px-3 py-2 flex flex-col items-center min-w-[56px]">
+        <span
+          className="font-display leading-none"
+          style={{ fontSize: '1.5rem', color: 'var(--apex-text)' }}
+        >
+          {Math.round(player.avgAccuracy * 100)}%
+        </span>
+        <span
+          className="text-[10px] font-semibold tracking-widest uppercase mt-0.5"
+          style={{ color: 'var(--apex-text-dim)' }}
+        >
+          Avg Acc
+        </span>
+      </div>
+
+      <div
+        className="px-3 py-2 flex flex-col justify-center min-w-[80px]"
+        style={{ borderLeft: '1px solid var(--apex-border)' }}
+      >
+        <div
+          className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider"
+          style={{ color: 'var(--apex-green)' }}
+        >
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+          Online
         </div>
-        <div>
-          <p className="text-2xl font-bold">{player.bestWpm}</p>
-          <p className="text-xs text-slate-500">Best WPM</p>
-        </div>
-        <div>
-          <p className="text-2xl font-bold">{Math.round(player.avgAccuracy * 100)}%</p>
-          <p className="text-xs text-slate-500">Avg Accuracy</p>
-        </div>
-      </CardContent>
-    </Card>
+        <p
+          className="text-xs mt-0.5 truncate max-w-[72px]"
+          style={{ color: 'var(--apex-text)', fontFamily: 'var(--font-space), monospace' }}
+        >
+          {player.username}
+        </p>
+      </div>
+    </div>
   )
 }

@@ -14,13 +14,8 @@ type Props = {
   onType: (value: string) => void
 }
 
-const statusColors: Record<CharResult['status'], string> = {
-  correct: 'text-green-600',
-  incorrect: 'text-red-500 bg-red-50',
-  pending: 'text-slate-400',
-}
-
 export function TypingInput({
+  sentence,
   typedText,
   charResults,
   wpm,
@@ -38,21 +33,71 @@ export function TypingInput({
   }, [isRoundActive, isFinished])
 
   const isDisabled = !isRoundActive || isFinished
+  const progress = sentence.length > 0 ? (typedText.length / sentence.length) * 100 : 0
 
   return (
-    <div className="space-y-4">
+    <div className="animate-slide-up space-y-3">
       <div
-        className="font-mono text-xl leading-relaxed p-4 bg-slate-50 rounded-lg border border-slate-200 cursor-text select-none"
+        className="relative rounded-lg p-5 cursor-text select-none transition-all duration-200"
+        style={{
+          background: 'var(--apex-surface)',
+          border: `1px solid ${isRoundActive && !isFinished ? 'rgba(240,180,41,0.2)' : 'var(--apex-border)'}`,
+          boxShadow: isRoundActive && !isFinished
+            ? '0 0 0 1px rgba(240,180,41,0.08), inset 0 0 40px rgba(0,0,0,0.3)'
+            : 'inset 0 0 40px rgba(0,0,0,0.3)',
+        }}
         onClick={() => inputRef.current?.focus()}
       >
-        {charResults.map((result, i) => (
-          <span key={i} className={statusColors[result.status]}>
-            {result.char}
-          </span>
-        ))}
-        {!isDisabled && (
-          <span className="inline-block w-0.5 h-5 bg-slate-800 animate-pulse ml-0.5 align-middle" />
-        )}
+        <div
+          className="text-lg leading-[2.2] tracking-wide"
+          style={{ fontFamily: 'var(--font-space), monospace' }}
+        >
+          {charResults.map((result, i) => {
+            const isCursor = i === typedText.length && !isDisabled
+            return (
+              <span key={i} className="relative">
+                {isCursor && (
+                  <span
+                    className="animate-cursor-blink absolute -left-px top-[0.15em] w-[2px] h-[1.4em] rounded-sm"
+                    style={{ background: 'var(--apex-gold)' }}
+                  />
+                )}
+                <span
+                  style={{
+                    color:
+                      result.status === 'correct'
+                        ? 'var(--apex-green)'
+                        : result.status === 'incorrect'
+                        ? 'var(--apex-red)'
+                        : 'var(--apex-text-dim)',
+                    background:
+                      result.status === 'incorrect' ? 'var(--apex-red-dim)' : 'transparent',
+                    borderRadius: result.status === 'incorrect' ? '2px' : undefined,
+                    transition: 'color 0.08s ease',
+                  }}
+                >
+                  {result.char}
+                </span>
+              </span>
+            )
+          })}
+        </div>
+
+        <div
+          className="absolute bottom-0 left-0 right-0 h-[2px] rounded-b-lg overflow-hidden"
+          style={{ background: 'var(--apex-border)' }}
+        >
+          <div
+            className="h-full transition-all duration-150 ease-out"
+            style={{
+              width: `${progress}%`,
+              background: isFinished
+                ? 'var(--apex-green)'
+                : 'linear-gradient(90deg, var(--apex-gold), rgba(240,180,41,0.7))',
+              boxShadow: '0 0 6px rgba(240,180,41,0.4)',
+            }}
+          />
+        </div>
       </div>
 
       <input
@@ -69,23 +114,65 @@ export function TypingInput({
         spellCheck={false}
       />
 
-      <div className="flex gap-6 text-sm text-slate-600">
-        <div>
-          <span className="font-medium">{wpm}</span>
-          <span className="ml-1">WPM</span>
+      <div className="flex items-center gap-6 px-1">
+        <div className="flex items-baseline gap-1.5">
+          <span
+            className="font-display leading-none"
+            style={{ fontSize: '2rem', color: 'var(--apex-gold)' }}
+          >
+            {wpm}
+          </span>
+          <span
+            className="text-xs font-semibold tracking-widest uppercase"
+            style={{ color: 'var(--apex-text-dim)' }}
+          >
+            WPM
+          </span>
         </div>
-        <div>
-          <span className="font-medium">{Math.round(accuracy * 100)}%</span>
-          <span className="ml-1">accuracy</span>
+
+        <div
+          className="w-px h-6 self-center"
+          style={{ background: 'var(--apex-border-bright)' }}
+        />
+
+        <div className="flex items-baseline gap-1.5">
+          <span
+            className="font-display leading-none"
+            style={{ fontSize: '2rem', color: 'var(--apex-text)' }}
+          >
+            {Math.round(accuracy * 100)}
+          </span>
+          <span
+            className="text-xs font-semibold tracking-widest uppercase"
+            style={{ color: 'var(--apex-text-dim)' }}
+          >
+            ACC%
+          </span>
         </div>
+
         {isFinished && (
-          <div className="text-green-600 font-semibold">Finished!</div>
+          <div
+            className="ml-auto flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase animate-fade-in"
+            style={{
+              background: 'rgba(52, 211, 153, 0.12)',
+              color: 'var(--apex-green)',
+              border: '1px solid rgba(52, 211, 153, 0.3)',
+            }}
+          >
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-current" />
+            Finished
+          </div>
+        )}
+
+        {!isRoundActive && !isFinished && (
+          <p
+            className="ml-auto text-xs tracking-wider uppercase"
+            style={{ color: 'var(--apex-text-dim)' }}
+          >
+            Waiting for round…
+          </p>
         )}
       </div>
-
-      {!isRoundActive && !isFinished && (
-        <p className="text-slate-400 text-sm italic">Waiting for next round...</p>
-      )}
     </div>
   )
 }
