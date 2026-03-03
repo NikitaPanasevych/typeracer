@@ -111,8 +111,6 @@ curl -X POST http://localhost:3000/api/cron/advance-round \
 
 Subsequent rounds must also be advanced manually in local development. In production on Vercel, the cron fires automatically every minute.
 
-> **Known issue:** The Vercel Cron job sends a `GET` request, but the route currently exports `POST`. This means the automatic cron will not fire correctly on Vercel as-is — it requires a one-line fix (rename `POST` to `GET` in `app/api/cron/advance-round/route.ts`). Manual calls work because you can specify the method explicitly. This is documented as a known limitation.
-
 ### Running Tests
 
 ```bash
@@ -144,7 +142,7 @@ Live state flows: client keystroke → `useTypingEngine` → throttled POST to `
 
 ### Round management
 
-A Vercel Cron job calls `POST /api/cron/advance-round` every minute. The endpoint:
+A Vercel Cron job calls `GET /api/cron/advance-round` every minute. The endpoint:
 
 1. Marks the current active round as `finished`
 2. Picks a random sentence
@@ -167,8 +165,8 @@ Each round gets its own Pusher channel (`round-<roundId>`). When a round ends, c
 
 Zustand holds two things:
 
-- `localPlayerId` / `localUsername` — set once on join, read by multiple hooks
-- `players: Map<string, PlayerLiveState>` — the live in-round player map, updated by every incoming Pusher event
+- `localPlayerId` / `localUsername` set once on join, read by multiple hooks
+- `players: Map<string, PlayerLiveState>` the live in-round player map, updated by every incoming Pusher event
 
 Using a `Map` (rather than an array) gives O(1) upsert on every incoming broadcast, which matters when updates arrive at ~6–7 Hz per player.
 
@@ -216,9 +214,6 @@ The function reads current stats, computes new values in application code, then 
 **`getRandomSentenceId` loads all rows**
 Every round advance fetches all sentence IDs from the DB and samples client-side. Fine for 20 sentences, becomes a full table scan at scale. Fix: `SELECT id FROM sentences ORDER BY RANDOM() LIMIT 1`.
 
-**Cron HTTP method mismatch**
-Vercel Cron jobs send `GET` requests but the route only handles `POST`. The Vercel cron will return 405 in production. Manual calls work. Rename `POST` → `GET` in `app/api/cron/advance-round/route.ts` to fix.
-
 **Cron does not run locally**
 Vercel Cron is cloud-only. Rounds must be advanced manually in local dev.
 
@@ -229,23 +224,68 @@ Players who close their tab remain in the leaderboard until the round ends and t
 The visual progress bar in `Countdown.tsx` assumes a 60-second round. If the round duration is changed, the bar will be incorrect. It should derive the maximum from `round.startedAt` and `round.endsAt`.
 
 **Tests are unit-only**
-Only `lib/game/calculations.ts` is covered. There are no integration tests for API routes or E2E tests for the full player journey.
+Only `lib/game/calculations.ts` is covered. There are no integration tests for API routes or E2E tests for the full player journey, as time was limited and focus was on the functional MVP.
+
+**Concurrent sessions with the same username**
+The same username can be opened in two different browsers simultaneously. Both sessions will share the same `playerId`, causing conflicting typing updates and corrupt live state on the leaderboard. A production fix would enforce single-session per player via a server-issued session token or Pusher presence channel membership check.
+
+**StatsCard does not react to external data changes**
+The `StatsCard` (persistent player stats: total races, best WPM, average accuracy) is only fetched once on join and is not updated when new results are saved to the database. If a round ends and `updatePlayerStats` writes new values, the card remains stale until the page is refreshed. A production system could use Server-Sent Events (SSE) or Supabase Realtime subscriptions to push DB-level changes to the client.
+
+**No logout functionality**
+Once a user joins, there is no way to log out or switch usernames without manually clearing `localStorage`. A logout button should clear the stored `typeracer_player_id` and `typeracer_username` keys and reset the Zustand store.
+
+**Accuracy defaults to 100% before typing**
+`calculateAccuracy` returns `1` (100%) when `totalTyped === 0`. This means a player who never types a single character appears with perfect accuracy. A more honest default would be `0` or `null` (displayed as "—") until the first keystroke.
+
+**No caching layer**
+Every API call hits Supabase directly with no intermediate cache. Frequently read data — the current round, sentence text, player profiles — could benefit from short-TTL caching (e.g. Vercel Data Cache, Upstash Redis, or Next.js `unstable_cache`) to reduce latency and database load.
+
+**No monitoring or observability**
+The application has no structured logging, metrics, or error tracking. Failures in API routes or Pusher broadcasts are only visible in Vercel function logs. A production deployment should include an APM tool (e.g. Sentry, Datadog) and structured logging (e.g. Pino) for both client and server.
+
+**No input validation on `/api/results`**
+`roundId`, `playerId`, `wpm`, `accuracy`, and `finishedTyping` are accepted without type or range validation. Unlike `/api/typing-update` (which has the WPM > 300 guard), this endpoint passes values directly to `upsertRoundResult`. A malicious caller could submit negative WPM, accuracy > 1, or invalid UUIDs.
+
+**`useRoundResults` can save stale values**
+The effect fires when `isRoundActive` flips to `false` or `isFinished` flips to `true`, but captures `wpm` and `accuracy` from the closure at that moment. If the round ends exactly while the player is mid-keystroke, the saved values may be one render cycle behind the latest.
+
+**No mobile / responsive support**
+The hidden `<input>` approach in `TypingInput.tsx` does not handle mobile virtual keyboards well. There is no touch-specific UX, and fixed-width elements like `StatsCard` cells (`min-w-[56px]`) will overflow on narrow screens.
+
+**Theme toggle is dead code**
+`useTheme.ts` implements a dark/light toggle with `localStorage` persistence, but it is never called from any component. The hook is unused dead code.
+
+**`Suspense` boundary has no fallback**
+In `page.tsx`, `<Suspense>` wraps the `Leaderboard` but provides no `fallback` prop, so there is no visible loading state while the component mounts.
+
+**Silent errors in `upsertRoundResult`**
+The Supabase `upsert` call in `lib/db/results.ts` does not check the response for errors. If the write fails, the error is silently swallowed and the player receives no feedback.
 
 ---
 
 ## What I Would Add With More Time
 
-- **Fix the known bugs above** (cron GET/POST, stats race condition, open RLS)
+- **Fix the known bugs above** (stats race condition, open RLS, accuracy default, concurrent sessions, stale round-end save, silent upsert errors)
 - **Supabase Auth** — anonymous sign-in to tie writes to a verified session
-- **Session token on write endpoints** — validate every `/api/typing-update` and `/api/results` call
-- **Playwright E2E tests** — full join → type → finish → leaderboard flow across two browser sessions
-- **Supabase `pg_cron`** — move round advancement into the DB to remove the Vercel dependency and fix the local dev experience
-- **Historical leaderboard** — query `round_results` across past rounds with pagination
-- **Spectator mode** — watch a round live without joining
+- **Session token on write endpoints** validate every `/api/typing-update` and `/api/results` call
+- **Input validation on `/api/results`** enforce type and range checks (e.g. `0 ≤ accuracy ≤ 1`, `wpm ≥ 0`, valid UUIDs)
+- **Single-session enforcement** prevent the same username from being active in multiple browsers
+- **Logout** clear stored identity and reset client state
+- **SSE / Supabase Realtime for StatsCard** push DB-level changes to the client instead of relying on a single fetch at join
+- **Caching layer** Upstash Redis or Next.js `unstable_cache` for hot reads (current round, sentences, player profiles)
+- **Monitoring & observability** Sentry for error tracking, Pino for structured logging, Vercel Analytics or Datadog for APM
+- **Mobile / responsive support** touch-friendly typing input, responsive StatsCard layout
+- **Wire up or remove `useTheme`** either add a theme toggle to the UI or remove the dead code
+- **`Suspense` fallback** provide a skeleton or spinner inside the `<Suspense>` wrapping `Leaderboard`
+- **Playwright E2E tests** full join → type → finish → leaderboard flow across two browser sessions
+- **Supabase `pg_cron`** move round advancement into the DB to remove the Vercel dependency and fix the local dev experience
+- **Historical leaderboard** query `round_results` across past rounds with pagination
+- **Spectator mode** watch a round live without joining
 - **Rate limiting** on API routes (e.g. via Upstash / Vercel Edge middleware)
 - **Presence channels** in Pusher for accurate online player count and disconnect detection
-- **CI/CD pipeline** — GitHub Actions running lint, type-check, and unit tests on every PR
-- **Error tracking** — Sentry integration on both client and server
+- **CI/CD pipeline** GitHub Actions running lint, type-check, and unit tests on every PR
 - **`ORDER BY RANDOM() LIMIT 1`** RPC to fix the sentence selection query
+- **XState for game state** The typing game has a well-defined state machine (unauthenticated → needs_username → waiting → countdown → typing → finished) that is currently managed via a combination of booleans across multiple hooks. This creates some impossible state risk. Replacing `useTypingEngine` and the top-level game state with an XState machine would make the transitions explicit, visualisable, and easier to test.
 
 ---
