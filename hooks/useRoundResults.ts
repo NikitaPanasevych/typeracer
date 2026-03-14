@@ -10,10 +10,20 @@ type Props = {
   wpm: number
   accuracy: number
   isFinished: boolean
+  onSaved?: () => void
 }
 
-export function useRoundResults({ roundId, playerId, isRoundActive, wpm, accuracy, isFinished }: Props) {
+export function useRoundResults({ roundId, playerId, isRoundActive, wpm, accuracy, isFinished, onSaved }: Props) {
   const hasSavedRef = useRef(false)
+  const wpmRef = useRef(wpm)
+  const accuracyRef = useRef(accuracy)
+  const isFinishedRef = useRef(isFinished)
+  const onSavedRef = useRef(onSaved)
+
+  wpmRef.current = wpm
+  accuracyRef.current = accuracy
+  isFinishedRef.current = isFinished
+  onSavedRef.current = onSaved
 
   useEffect(() => {
     hasSavedRef.current = false
@@ -29,9 +39,15 @@ export function useRoundResults({ roundId, playerId, isRoundActive, wpm, accurac
     fetch('/api/results', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ roundId, playerId, wpm, accuracy, finishedTyping: isFinished }),
-    }).catch(() => {
-      toast.error('Failed to save results')
+      body: JSON.stringify({
+        roundId,
+        playerId,
+        wpm: wpmRef.current,
+        accuracy: accuracyRef.current,
+        finishedTyping: isFinishedRef.current,
+      }),
     })
-  }, [isRoundActive, isFinished, roundId, playerId, wpm, accuracy])
+      .then((res) => { if (res.ok) onSavedRef.current?.() })
+      .catch(() => { toast.error('Failed to save results') })
+  }, [isRoundActive, isFinished, roundId, playerId])
 }

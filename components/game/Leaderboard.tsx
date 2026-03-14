@@ -191,10 +191,10 @@ export function Leaderboard({ localPlayerId }: Props) {
       </div>
 
       <div
-        className="rounded-lg overflow-hidden"
+        className="rounded-lg overflow-x-auto"
         style={{ border: '1px solid var(--apex-border)', background: 'var(--apex-surface)' }}
       >
-        <table className="w-full text-sm">
+        <table className="w-full text-sm min-w-[480px]">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr

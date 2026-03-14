@@ -266,25 +266,35 @@ The Supabase `upsert` call in `lib/db/results.ts` does not check the response fo
 
 ## What I Would Add With More Time
 
-- **Fix the known bugs above** (stats race condition, open RLS, accuracy default, concurrent sessions, stale round-end save, silent upsert errors)
-- **Supabase Auth** — anonymous sign-in to tie writes to a verified session
-- **Session token on write endpoints** validate every `/api/typing-update` and `/api/results` call
-- **Input validation on `/api/results`** enforce type and range checks (e.g. `0 ≤ accuracy ≤ 1`, `wpm ≥ 0`, valid UUIDs)
-- **Single-session enforcement** prevent the same username from being active in multiple browsers
-- **Logout** clear stored identity and reset client state
-- **SSE / Supabase Realtime for StatsCard** push DB-level changes to the client instead of relying on a single fetch at join
-- **Caching layer** Upstash Redis or Next.js `unstable_cache` for hot reads (current round, sentences, player profiles)
-- **Monitoring & observability** Sentry for error tracking, Pino for structured logging, Vercel Analytics or Datadog for APM
-- **Mobile / responsive support** touch-friendly typing input, responsive StatsCard layout
-- **Wire up or remove `useTheme`** either add a theme toggle to the UI or remove the dead code
-- **`Suspense` fallback** provide a skeleton or spinner inside the `<Suspense>` wrapping `Leaderboard`
-- **Playwright E2E tests** full join → type → finish → leaderboard flow across two browser sessions
-- **Supabase `pg_cron`** move round advancement into the DB to remove the Vercel dependency and fix the local dev experience
-- **Historical leaderboard** query `round_results` across past rounds with pagination
-- **Spectator mode** watch a round live without joining
-- **Rate limiting** on API routes (e.g. via Upstash / Vercel Edge middleware)
-- **Presence channels** in Pusher for accurate online player count and disconnect detection
-- **CI/CD pipeline** GitHub Actions running lint, type-check, and unit tests on every PR
-- **`ORDER BY RANDOM() LIMIT 1`** RPC to fix the sentence selection query
+### Completed
+
+- ~~**Supabase anonymous auth**~~ replaced localStorage identity with `signInAnonymously()`; session persists via cookie-based JWT
+- ~~**RLS policies**~~ `players` table scoped to `auth.uid()`; insert and update restricted to the owning user
+- ~~**Atomic `updatePlayerStats`**~~ replaced read-modify-write with a Postgres function (`update_player_stats`) to eliminate the race condition
+- ~~**Session token on write endpoints**~~ `/api/typing-update` and `/api/results` now verify `auth.uid() === playerId`; returns 403 on mismatch
+- ~~**Input validation on `/api/results`**~~ UUID format, `0 ≤ accuracy ≤ 1`, `0 ≤ wpm ≤ 300`, `boolean finishedTyping` all enforced
+- ~~**Stale round-end save**~~ `useRoundResults` reads `wpm`/`accuracy` from refs at call time instead of capturing stale closure values
+- ~~**Accuracy default**~~ `useTypingEngine` now initialises accuracy to `0` instead of `1`; no more phantom 100% before first keystroke
+- ~~**Countdown hardcoded to 60s**~~ progress bar derives `totalSeconds` from `round.startedAt`/`round.endsAt`
+- ~~**`Suspense` fallback**~~ `LeaderboardSkeleton` provided as fallback to the `<Suspense>` wrapping `Leaderboard`
+- ~~**StatsCard staleness**~~ `refreshPlayer()` is called via `onSaved` callback after each round result saves
+- ~~**Wire up `useTheme`**~~ dark/light toggle button added to homepage and game page header
+- ~~**Disconnect detection**~~ presence channels fire `pusher:member_removed` on tab close; stale players removed immediately
+- ~~**Single-session enforcement**~~ `pusher:subscription_succeeded` detects the same `user_id` already present in the channel and warns via toast
+- ~~**Presence channels**~~ subscribed to `presence-round-{id}`; Pusher auth endpoint at `/api/pusher/auth` signs each subscription with `auth.uid()` and username
+- ~~**`ORDER BY RANDOM() LIMIT 1`**~~ replaced full table scan with a Postgres RPC `get_random_sentence_id()`
+- ~~**Mobile / responsive support**~~ typing input uses `opacity:0` positioning instead of `clip`-based `sr-only`; `inputMode="text"` and `onTouchEnd` focus for virtual keyboards; leaderboard table is horizontally scrollable
+- ~~**Historical leaderboard**~~ `/history` page (server component) shows past rounds with sentence, timestamp, and per-round results; paginated 8 per page
+- ~~**Logout**~~ sign-out button calls `supabase.auth.signOut()` and clears Zustand player state
+- ~~**Lobby / homepage**~~ dedicated `/` page with stats card, Enter Game Room, Watch as Spectator, and Race History actions; game moved to `/game`
+
+### Still To Do
+
+- **Caching layer** — hot reads (current round, sentences, player profiles) hit Supabase on every request; short-TTL caching via `unstable_cache` or Upstash Redis would reduce latency and DB load
+- **Rate limiting** — no per-IP or per-user limits on any API route; add via Upstash Ratelimit or Vercel Edge middleware
+- **Monitoring & observability** — no structured logging or error tracking; add Sentry for client/server errors, Pino for server logs, and Vercel Analytics or Datadog for APM
+- **Playwright E2E tests** — no integration coverage; a full join → type → finish → leaderboard flow across two browser sessions would catch regressions the unit tests miss
+- **CI/CD pipeline** — no automated checks on PRs; GitHub Actions running `tsc --noEmit`, ESLint, and `vitest run` would prevent broken code from reaching `main`
+- **Cron in local dev** — Vercel Cron is cloud-only; rounds must be advanced manually; a local `scripts/advance-round.ts` helper or `watch` script would remove the friction
 
 ---

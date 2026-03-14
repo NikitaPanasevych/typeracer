@@ -8,7 +8,12 @@
       "mcp__chakra-ui__get_component_example",
       "Bash(npm install:*)",
       "Bash(node:*)",
-      "Bash(npx shadcn@latest:*)"
+      "Bash(npx shadcn@latest:*)",
+      "Bash(claude mcp:*)",
+      "Read(//c/Users/Nikita Panasevych/.claude/**)",
+      "Read(//c/Users/Nikita Panasevych/AppData/Roaming/Claude/**)",
+      "Bash(cd \"/c/Users/Nikita Panasevych/Desktop/typeracer\" && npx tsc --noEmit 2>&1 | head -40)",
+      "Bash(cd \"/c/Users/Nikita Panasevych/Desktop/typeracer\" && npx tsc --noEmit 2>&1 | head -30)"
     ]
   }
 }

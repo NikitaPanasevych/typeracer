@@ -2,10 +2,11 @@
 
 type Props = {
   secondsLeft: number
+  totalSeconds: number
   isLoading: boolean
 }
 
-export function Countdown({ secondsLeft, isLoading }: Props) {
+export function Countdown({ secondsLeft, totalSeconds, isLoading }: Props) {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center gap-2">
@@ -21,7 +22,7 @@ export function Countdown({ secondsLeft, isLoading }: Props) {
   const isUrgent = secondsLeft <= 10 && secondsLeft > 0
   const isDead = secondsLeft === 0
 
-  const progress = Math.min(100, (secondsLeft / 60) * 100)
+  const progress = totalSeconds > 0 ? Math.min(100, (secondsLeft / totalSeconds) * 100) : 0
 
   return (
     <div className="flex flex-col items-center gap-1">

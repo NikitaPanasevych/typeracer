@@ -1,3 +1,18 @@
+export function LeaderboardSkeleton() {
+  return (
+    <div className="space-y-2 animate-fade-in">
+      <div className="h-10 rounded animate-pulse" style={{ background: 'var(--apex-surface)' }} />
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="h-12 rounded animate-pulse"
+          style={{ background: 'var(--apex-surface)', opacity: 1 - i * 0.2 }}
+        />
+      ))}
+    </div>
+  )
+}
+
 export function GameLoadingSkeleton() {
   return (
     <div className="space-y-10 animate-fade-in">

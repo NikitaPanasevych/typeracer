@@ -58,8 +58,8 @@ export async function finishRound(roundId: string): Promise<void> {
 
 export async function getRandomSentenceId(): Promise<string | null> {
   const supabase = await createClient()
-  const { data, error } = await supabase.from('sentences').select('id')
-  if (error || !data?.length) return null
-  const random = data[Math.floor(Math.random() * data.length)]
-  return random.id
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc('get_random_sentence_id')
+  if (error || !data) return null
+  return data as string
 }

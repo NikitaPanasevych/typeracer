@@ -8,6 +8,10 @@ type GameStore = {
   localPlayerId: string | null
   localUsername: string | null
   setLocalPlayer: (id: string, username: string) => void
+  clearLocalPlayer: () => void
+
+  isInRoom: boolean
+  setInRoom: (val: boolean) => void
 
   players: Map<string, PlayerLiveState>
   upsertPlayer: (state: PlayerLiveState) => void
@@ -22,6 +26,10 @@ export const useGameStore = create<GameStore>((set) => ({
   localPlayerId: null,
   localUsername: null,
   setLocalPlayer: (id, username) => set({ localPlayerId: id, localUsername: username }),
+  clearLocalPlayer: () => set({ localPlayerId: null, localUsername: null }),
+
+  isInRoom: false,
+  setInRoom: (val) => set({ isInRoom: val }),
 
   players: new Map(),
   upsertPlayer: (playerState) =>

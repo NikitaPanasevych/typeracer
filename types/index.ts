@@ -40,3 +40,19 @@ export type LeaderboardRow = PlayerLiveState & {
 }
 
 export type PusherPlayerUpdatePayload = PlayerLiveState
+
+export type HistoricalRoundResult = {
+  playerId: string
+  username: string
+  wpm: number
+  accuracy: number
+  finishedTyping: boolean
+}
+
+export type HistoricalRound = {
+  roundId: string
+  sentence: string
+  startedAt: string
+  endsAt: string
+  results: HistoricalRoundResult[]
+}

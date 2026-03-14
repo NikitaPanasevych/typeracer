@@ -47,9 +47,10 @@ export function TypingInput({
             : 'inset 0 0 40px rgba(0,0,0,0.3)',
         }}
         onClick={() => inputRef.current?.focus()}
+        onTouchEnd={() => inputRef.current?.focus()}
       >
         <div
-          className="text-lg leading-[2.2] tracking-wide"
+          className="text-sm sm:text-lg leading-[2.2] tracking-wide"
           style={{ fontFamily: 'var(--font-space), monospace' }}
         >
           {charResults.map((result, i) => {
@@ -103,15 +104,24 @@ export function TypingInput({
       <input
         ref={inputRef}
         type="text"
+        inputMode="text"
         value={typedText}
         onChange={(e) => onType(e.target.value)}
         disabled={isDisabled}
-        className="sr-only"
         aria-label="Type the sentence above"
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
         spellCheck={false}
+        style={{
+          position: 'absolute',
+          opacity: 0,
+          width: 1,
+          height: 1,
+          top: 0,
+          left: 0,
+          pointerEvents: 'none',
+        }}
       />
 
       <div className="flex items-center gap-6 px-1">

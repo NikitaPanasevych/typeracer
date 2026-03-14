@@ -30,14 +30,14 @@ type Props = {
 export function useTypingEngine({ sentence, roundId, isRoundActive }: Props): TypingState {
   const [typedText, setTypedText] = useState('')
   const [wpm, setWpm] = useState(0)
-  const [accuracy, setAccuracy] = useState(1)
+  const [accuracy, setAccuracy] = useState(0)
   const [isFinished, setIsFinished] = useState(false)
   const startedAtRef = useRef<number | null>(null)
 
   useEffect(() => {
     setTypedText('')
     setWpm(0)
-    setAccuracy(1)
+    setAccuracy(0)
     setIsFinished(false)
     startedAtRef.current = null
   }, [roundId])
@@ -71,7 +71,7 @@ export function useTypingEngine({ sentence, roundId, isRoundActive }: Props): Ty
   const reset = useCallback(() => {
     setTypedText('')
     setWpm(0)
-    setAccuracy(1)
+    setAccuracy(0)
     setIsFinished(false)
     startedAtRef.current = null
   }, [])
