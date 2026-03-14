@@ -286,6 +286,5 @@ The Supabase `upsert` call in `lib/db/results.ts` does not check the response fo
 - **Presence channels** in Pusher for accurate online player count and disconnect detection
 - **CI/CD pipeline** GitHub Actions running lint, type-check, and unit tests on every PR
 - **`ORDER BY RANDOM() LIMIT 1`** RPC to fix the sentence selection query
-- **XState for game state** The typing game has a well-defined state machine (unauthenticated → needs_username → waiting → countdown → typing → finished) that is currently managed via a combination of booleans across multiple hooks. This creates some impossible state risk. Replacing `useTypingEngine` and the top-level game state with an XState machine would make the transitions explicit, visualisable, and easier to test.
 
 ---
