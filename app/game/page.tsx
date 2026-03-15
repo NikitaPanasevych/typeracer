@@ -15,6 +15,9 @@ import { Leaderboard } from '@/components/game/Leaderboard'
 import { JoinModal } from '@/components/game/JoinModal'
 import { StatsCard } from '@/components/game/StatsCard'
 import { GameLoadingSkeleton, LeaderboardSkeleton } from '@/components/game/LoadingSkeleton'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { LeaderboardErrorBoundary } from '@/components/game/LeaderboardErrorBoundary'
 import type { PlayerLiveState } from '@/types'
 
 function GamePage() {
@@ -95,12 +98,11 @@ function GamePage() {
     return (
       <main className="min-h-screen flex items-center justify-center">
         <div
-          className="px-6 py-4 rounded-lg text-sm"
+          className="px-6 py-4 rounded-lg text-sm font-mono"
           style={{
             background: 'rgba(248,113,113,0.08)',
             border: '1px solid rgba(248,113,113,0.25)',
             color: 'var(--apex-red)',
-            fontFamily: 'var(--font-space), monospace',
           }}
         >
           {error}
@@ -116,13 +118,15 @@ function GamePage() {
       <main className="min-h-screen px-6 py-10 max-w-4xl mx-auto">
         <header className="mb-10 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button
+            <Button
+              variant="apex-ghost-sm"
+              size="none"
               onClick={handleLeaveRoom}
-              className="flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.2em] uppercase transition-opacity hover:opacity-60"
-              style={{ color: 'var(--apex-red)', fontFamily: 'var(--font-space), monospace' }}
+              className="flex items-center gap-1.5 tracking-[0.2em]"
+              style={{ color: 'var(--apex-red)' }}
             >
               ✕ Leave Room
-            </button>
+            </Button>
             <div className="w-px h-5" style={{ background: 'var(--apex-border-bright)' }} />
             <div>
               <p
@@ -141,13 +145,14 @@ function GamePage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <button
+            <Button
+              variant="apex-ghost-sm"
+              size="none"
               onClick={toggleTheme}
-              className="text-[11px] font-semibold tracking-[0.15em] uppercase transition-opacity hover:opacity-60"
-              style={{ color: 'var(--apex-text-dim)', fontFamily: 'var(--font-space), monospace' }}
+              style={{ color: 'var(--apex-text-dim)' }}
             >
               {theme === 'dark' ? 'Light' : 'Dark'}
-            </button>
+            </Button>
             {player && !isSpectator && <StatsCard player={player} />}
           </div>
         </header>
@@ -168,34 +173,30 @@ function GamePage() {
             />
           ) : (
             !isLoading && (isJoined || isSpectator) && (
-              <div
-                className="flex items-center justify-center py-12 rounded-lg"
-                style={{
-                  border: '1px solid var(--apex-border)',
-                  background: 'var(--apex-surface)',
-                }}
+              <Card
+                className="flex-row items-center justify-center py-12 rounded-lg gap-0 shadow-none border-0"
+                style={{ border: '1px solid var(--apex-border)', background: 'var(--apex-surface)' }}
               >
                 <div className="text-center space-y-2">
-                  <p
-                    className="text-xs font-semibold tracking-[0.25em] uppercase"
-                    style={{ color: 'var(--apex-gold)', opacity: 0.6 }}
-                  >
+                  <p className="apex-section-cap" style={{ color: 'var(--apex-gold)', opacity: 0.6 }}>
                     Standby
                   </p>
                   <p
-                    className="text-sm tracking-wide"
-                    style={{ color: 'var(--apex-text-dim)', fontFamily: 'var(--font-space), monospace' }}
+                    className="text-sm tracking-wide font-mono"
+                    style={{ color: 'var(--apex-text-dim)' }}
                   >
                     Next round starting soon…
                   </p>
                 </div>
-              </div>
+              </Card>
             )
           )}
 
-          <Suspense fallback={<LeaderboardSkeleton />}>
-            <Leaderboard localPlayerId={localPlayerId} />
-          </Suspense>
+          <LeaderboardErrorBoundary>
+            <Suspense fallback={<LeaderboardSkeleton />}>
+              <Leaderboard localPlayerId={localPlayerId} />
+            </Suspense>
+          </LeaderboardErrorBoundary>
         </div>
       </main>
     </>

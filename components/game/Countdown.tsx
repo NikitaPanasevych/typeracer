@@ -26,10 +26,7 @@ export function Countdown({ secondsLeft, totalSeconds, isLoading }: Props) {
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <p
-        className="text-xs font-semibold tracking-[0.25em] uppercase"
-        style={{ color: 'var(--apex-text-dim)' }}
-      >
+      <p className="apex-section-cap" style={{ color: 'var(--apex-text-dim)' }}>
         Round Time
       </p>
 

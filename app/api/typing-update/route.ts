@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { pusherServer } from '@/lib/pusher/server'
-import { roundChannel, PUSHER_EVENTS } from '@/lib/pusher/constants'
+import { presenceRoundChannel, PUSHER_EVENTS } from '@/lib/pusher/constants'
 import { createClient } from '@/lib/supabase/server'
 import type { PusherPlayerUpdatePayload } from '@/types'
 
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await pusherServer.trigger(roundChannel(roundId), PUSHER_EVENTS.PLAYER_UPDATE, payload)
+    await pusherServer.trigger(presenceRoundChannel(roundId), PUSHER_EVENTS.PLAYER_UPDATE, payload)
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error('[typing-update]', error)

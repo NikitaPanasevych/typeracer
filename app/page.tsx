@@ -7,6 +7,7 @@ import { usePlayer } from '@/hooks/usePlayer'
 import { useGameStore } from '@/lib/store/gameStore'
 import { useTheme } from '@/hooks/useTheme'
 import { JoinModal } from '@/components/game/JoinModal'
+import { Button } from '@/components/ui/button'
 
 export default function HomePage() {
   const { player, isLoading, isJoined, join, logout } = usePlayer()
@@ -24,8 +25,8 @@ export default function HomePage() {
     router.push('/game')
   }
 
-  const handleJoin = async (username: string) => {
-    const result = await join(username)
+  const handleJoin = async (username: string, password: string, mode: 'signup' | 'signin') => {
+    const result = await join(username, password, mode)
     if (!result.error) {
       setShowJoinModal(false)
       setInRoom(true)
@@ -51,24 +52,26 @@ export default function HomePage() {
 
   return (
     <>
-      <JoinModal open={showJoinModal} onJoin={handleJoin} />
+      <JoinModal open={showJoinModal} onJoin={handleJoin} onClose={() => setShowJoinModal(false)} />
 
       <main className="min-h-screen flex flex-col items-center justify-center px-6 py-16">
-        <button
+        <Button
+          variant="apex-ghost-sm"
+          size="none"
           onClick={toggleTheme}
-          className="fixed top-5 right-5 text-[11px] font-semibold tracking-[0.15em] uppercase transition-opacity hover:opacity-60"
-          style={{ color: 'var(--apex-text-dim)', fontFamily: 'var(--font-space), monospace' }}
+          className="fixed top-5 right-5 transition-opacity"
+          style={{ color: 'var(--apex-text-dim)' }}
         >
           {theme === 'dark' ? 'Light' : 'Dark'}
-        </button>
+        </Button>
 
 
         <div className="text-center mb-12 animate-slide-up">
           <div className="flex items-center justify-center gap-3 mb-3">
             <div className="h-px w-12" style={{ background: 'var(--apex-border-bright)' }} />
             <span
-              className="text-[10px] font-semibold tracking-[0.4em] uppercase"
-              style={{ color: 'var(--apex-gold)', opacity: 0.8, fontFamily: 'var(--font-space), monospace' }}
+              className="text-[10px] font-semibold tracking-[0.4em] uppercase font-mono"
+              style={{ color: 'var(--apex-gold)', opacity: 0.8 }}
             >
               Competitive Typing
             </span>
@@ -87,8 +90,8 @@ export default function HomePage() {
           </h1>
 
           <p
-            className="mt-3 text-xs tracking-[0.25em] uppercase"
-            style={{ color: 'var(--apex-text-dim)', fontFamily: 'var(--font-space), monospace' }}
+            className="mt-3 text-xs tracking-[0.25em] uppercase font-mono"
+            style={{ color: 'var(--apex-text-dim)' }}
           >
             Real-time multiplayer · Live rankings
           </p>
@@ -109,19 +112,20 @@ export default function HomePage() {
                   style={{ background: 'var(--apex-green)' }}
                 />
                 <span
-                  className="text-xs font-semibold tracking-[0.15em] uppercase"
-                  style={{ color: 'var(--apex-text-dim)', fontFamily: 'var(--font-space), monospace' }}
+                  className="text-xs font-semibold tracking-[0.15em] uppercase font-mono"
+                  style={{ color: 'var(--apex-text-dim)' }}
                 >
                   {player.username}
                 </span>
               </div>
-              <button
+              <Button
+                variant="apex-ghost-sm"
+                size="none"
                 onClick={logout}
-                className="text-[10px] font-semibold tracking-[0.15em] uppercase transition-opacity hover:opacity-60"
-                style={{ color: 'var(--apex-text-dim)', fontFamily: 'var(--font-space), monospace' }}
+                style={{ color: 'var(--apex-text-dim)' }}
               >
                 Sign Out
-              </button>
+              </Button>
             </div>
 
             <div
@@ -139,12 +143,7 @@ export default function HomePage() {
                 >
                   {player.totalRaces}
                 </span>
-                <span
-                  className="text-[10px] font-semibold tracking-widest uppercase mt-1.5"
-                  style={{ color: 'var(--apex-text-dim)' }}
-                >
-                  Races
-                </span>
+                <span className="apex-stat-label mt-1.5">Races</span>
               </div>
 
               <div className="flex flex-col items-center py-5 px-3" style={{ borderRight: '1px solid var(--apex-border)' }}>
@@ -154,12 +153,7 @@ export default function HomePage() {
                 >
                   {player.bestWpm}
                 </span>
-                <span
-                  className="text-[10px] font-semibold tracking-widest uppercase mt-1.5"
-                  style={{ color: 'var(--apex-text-dim)' }}
-                >
-                  Best WPM
-                </span>
+                <span className="apex-stat-label mt-1.5">Best WPM</span>
               </div>
 
               <div className="flex flex-col items-center py-5 px-3">
@@ -169,12 +163,7 @@ export default function HomePage() {
                 >
                   {Math.round(player.avgAccuracy * 100)}%
                 </span>
-                <span
-                  className="text-[10px] font-semibold tracking-widest uppercase mt-1.5"
-                  style={{ color: 'var(--apex-text-dim)' }}
-                >
-                  Avg Acc
-                </span>
+                <span className="apex-stat-label mt-1.5">Avg Acc</span>
               </div>
             </div>
           </div>
@@ -184,47 +173,24 @@ export default function HomePage() {
           className="w-full max-w-sm flex flex-col gap-3 animate-slide-up"
           style={{ animationDelay: '0.08s' }}
         >
-          <button
-            onClick={handleEnterGame}
-            className="w-full flex items-center justify-between px-6 py-4 rounded-lg font-semibold tracking-[0.18em] uppercase text-sm transition-all hover:brightness-110 active:scale-[0.985]"
-            style={{
-              background: 'var(--apex-gold)',
-              color: '#0c0b09',
-              fontFamily: 'var(--font-space), monospace',
-            }}
-          >
+          <Button variant="apex-primary" size="action" onClick={handleEnterGame}>
             <span>Enter Game Room</span>
             <span>▶</span>
-          </button>
+          </Button>
 
-          <button
-            onClick={handleSpectate}
-            className="w-full flex items-center justify-between px-6 py-4 rounded-lg font-semibold tracking-[0.18em] uppercase text-sm transition-all hover:opacity-75 active:scale-[0.985]"
-            style={{
-              background: 'transparent',
-              border: '1px solid var(--apex-border-bright)',
-              color: 'var(--apex-text)',
-              fontFamily: 'var(--font-space), monospace',
-            }}
-          >
+          <Button variant="apex-ghost" size="action" onClick={handleSpectate}>
             <span>Watch as Spectator</span>
             <span style={{ opacity: 0.5 }}>◉</span>
-          </button>
+          </Button>
 
-          <Link
-            href="/history"
-            className="w-full flex items-center justify-between px-6 py-4 rounded-lg font-semibold tracking-[0.18em] uppercase text-sm transition-all hover:opacity-75 active:scale-[0.985]"
-            style={{
-              background: 'transparent',
-              border: '1px solid var(--apex-border)',
-              color: 'var(--apex-text-dim)',
-              fontFamily: 'var(--font-space), monospace',
-            }}
-          >
-            <span>Race History</span>
-            <span style={{ opacity: 0.5 }}>↗</span>
-          </Link>
-
+          {isJoined && player && (
+            <Button variant="apex-muted" size="action" asChild>
+              <Link href="/history">
+                <span>Race History</span>
+                <span style={{ opacity: 0.5 }}>↗</span>
+              </Link>
+            </Button>
+          )}
         </div>
       </main>
     </>

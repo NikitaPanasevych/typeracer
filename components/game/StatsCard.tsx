@@ -1,9 +1,10 @@
+import { Card } from '@/components/ui/card'
 import type { Player } from '@/types'
 
 export function StatsCard({ player }: { player: Player }) {
   return (
-    <div
-      className="flex items-center gap-px rounded-lg overflow-hidden"
+    <Card
+      className="flex-row items-center gap-px p-0 py-0 rounded-lg overflow-hidden shadow-none border-0"
       style={{ border: '1px solid var(--apex-border)', background: 'var(--apex-surface)' }}
     >
       <div
@@ -16,12 +17,7 @@ export function StatsCard({ player }: { player: Player }) {
         >
           {player.totalRaces}
         </span>
-        <span
-          className="text-[10px] font-semibold tracking-widest uppercase mt-0.5"
-          style={{ color: 'var(--apex-text-dim)' }}
-        >
-          Races
-        </span>
+        <span className="apex-stat-label mt-0.5">Races</span>
       </div>
 
       <div
@@ -34,12 +30,7 @@ export function StatsCard({ player }: { player: Player }) {
         >
           {player.bestWpm}
         </span>
-        <span
-          className="text-[10px] font-semibold tracking-widest uppercase mt-0.5"
-          style={{ color: 'var(--apex-text-dim)' }}
-        >
-          Best
-        </span>
+        <span className="apex-stat-label mt-0.5">Best</span>
       </div>
 
       <div className="px-3 py-2 flex flex-col items-center min-w-[56px]">
@@ -49,12 +40,7 @@ export function StatsCard({ player }: { player: Player }) {
         >
           {Math.round(player.avgAccuracy * 100)}%
         </span>
-        <span
-          className="text-[10px] font-semibold tracking-widest uppercase mt-0.5"
-          style={{ color: 'var(--apex-text-dim)' }}
-        >
-          Avg Acc
-        </span>
+        <span className="apex-stat-label mt-0.5">Avg Acc</span>
       </div>
 
       <div
@@ -69,12 +55,12 @@ export function StatsCard({ player }: { player: Player }) {
           Online
         </div>
         <p
-          className="text-xs mt-0.5 truncate max-w-[72px]"
-          style={{ color: 'var(--apex-text)', fontFamily: 'var(--font-space), monospace' }}
+          className="text-xs mt-0.5 truncate max-w-[72px] font-mono"
+          style={{ color: 'var(--apex-text)' }}
         >
           {player.username}
         </p>
       </div>
-    </div>
+    </Card>
   )
 }

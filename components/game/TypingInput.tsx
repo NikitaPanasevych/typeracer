@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useEffect } from 'react'
+import { Badge } from '@/components/ui/badge'
 import type { CharResult } from '@/lib/game/calculations'
 
 type Props = {
@@ -132,12 +133,7 @@ export function TypingInput({
           >
             {wpm}
           </span>
-          <span
-            className="text-xs font-semibold tracking-widest uppercase"
-            style={{ color: 'var(--apex-text-dim)' }}
-          >
-            WPM
-          </span>
+          <span className="apex-stat-label">WPM</span>
         </div>
 
         <div
@@ -152,26 +148,14 @@ export function TypingInput({
           >
             {Math.round(accuracy * 100)}
           </span>
-          <span
-            className="text-xs font-semibold tracking-widest uppercase"
-            style={{ color: 'var(--apex-text-dim)' }}
-          >
-            ACC%
-          </span>
+          <span className="apex-stat-label">ACC%</span>
         </div>
 
         {isFinished && (
-          <div
-            className="ml-auto flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase animate-fade-in"
-            style={{
-              background: 'rgba(52, 211, 153, 0.12)',
-              color: 'var(--apex-green)',
-              border: '1px solid rgba(52, 211, 153, 0.3)',
-            }}
-          >
+          <Badge variant="apex-finished" className="ml-auto animate-fade-in gap-2 px-3 py-1">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-current" />
             Finished
-          </div>
+          </Badge>
         )}
 
         {!isRoundActive && !isFinished && (

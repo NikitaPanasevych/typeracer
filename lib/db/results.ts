@@ -25,17 +25,26 @@ export async function upsertRoundResult(result: {
 	}
 }
 
-export async function getHistoricalRounds(
+export async function getHistoricalRoundsForPlayer(
+  playerId: string,
   page: number,
   limit: number
 ): Promise<{ rounds: HistoricalRound[]; total: number }> {
   const supabase = await createClient()
   const offset = (page - 1) * limit
 
-  const { count } = await supabase
-    .from('rounds')
-    .select('id', { count: 'exact', head: true })
-    .eq('status', 'finished')
+  const { data: participation, error: countError } = await supabase
+    .from('round_results')
+    .select('round_id, rounds!inner(status)')
+    .eq('player_id', playerId)
+    .eq('rounds.status', 'finished')
+
+  if (countError || !participation) return { rounds: [], total: 0 }
+
+  const total = participation.length
+  if (total === 0) return { rounds: [], total: 0 }
+
+  const roundIds = participation.map((p) => p.round_id)
 
   const { data, error } = await supabase
     .from('rounds')
@@ -53,6 +62,7 @@ export async function getHistoricalRounds(
       )
     `)
     .eq('status', 'finished')
+    .in('id', roundIds)
     .order('started_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
@@ -84,5 +94,5 @@ export async function getHistoricalRounds(
     }
   })
 
-  return { rounds, total: count ?? 0 }
+  return { rounds, total }
 }

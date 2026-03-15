@@ -10,7 +10,7 @@ type PlayerHookState = {
   player: Player | null
   isLoading: boolean
   isJoined: boolean
-  join: (username: string) => Promise<{ error?: string }>
+  join: (username: string, password: string, mode: 'signup' | 'signin') => Promise<{ error?: string }>
   logout: () => Promise<void>
   refreshPlayer: () => Promise<void>
 }
@@ -34,47 +34,75 @@ export function usePlayer(): PlayerHookState {
           setPlayer(existing)
           setLocalPlayer(existing.id, existing.username)
         }
+      } else {
+        setPlayer(null)
+        clearLocalPlayer()
       }
 
       setIsLoading(false)
     }
 
     void restoreSession()
-  }, [setLocalPlayer])
 
-  const join = async (username: string): Promise<{ error?: string }> => {
+    window.addEventListener('focus', restoreSession)
+    return () => window.removeEventListener('focus', restoreSession)
+  }, [setLocalPlayer, clearLocalPlayer])
+
+  const join = async (username: string, password: string, mode: 'signup' | 'signin'): Promise<{ error?: string }> => {
     const trimmed = username.trim()
     if (!trimmed) return { error: 'Username cannot be empty' }
     if (trimmed.length < 2) return { error: 'Username must be at least 2 characters' }
     if (trimmed.length > 20) return { error: 'Username must be 20 characters or less' }
     if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) return { error: 'Only letters, numbers, _ and - allowed' }
+    if (!password || password.length < 6) return { error: 'Password must be at least 6 characters' }
 
     const supabase = createClient()
 
-    const { data: { user } } = await supabase.auth.getUser()
+    if (mode === 'signup') {
+      const createRes = await fetch('/api/players', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: trimmed, password }),
+      })
 
-    if (!user) {
-      const { error: authError } = await supabase.auth.signInAnonymously()
-      if (authError) return { error: 'Authentication failed' }
+      if (!createRes.ok) {
+        const { error } = await createRes.json()
+        return { error: error ?? 'Failed to create account' }
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: `${trimmed}@typeracer.local`,
+        password,
+      })
+      if (signInError) return { error: 'Account created but sign-in failed. Try signing in.' }
+
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return { error: 'Authentication failed' }
+
+      const res = await fetch(`/api/players?id=${user.id}`)
+      const { player: newPlayer } = await res.json()
+      setPlayer(newPlayer)
+      setLocalPlayer(newPlayer.id, newPlayer.username)
+      toast.success(`Welcome, ${newPlayer.username}!`)
+      return {}
     }
 
-    const createRes = await fetch('/api/players', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: trimmed }),
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: `${trimmed}@typeracer.local`,
+      password,
     })
+    if (signInError) return { error: 'Invalid username or password' }
 
-    if (!createRes.ok) {
-      const { error } = await createRes.json()
-      return { error: error ?? 'Failed to create player' }
-    }
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Authentication failed' }
 
-    const { player: newPlayer } = await createRes.json()
+    const res = await fetch(`/api/players?id=${user.id}`)
+    const { player: existing } = await res.json()
+    if (!existing) return { error: 'Player not found' }
 
-    setPlayer(newPlayer)
-    setLocalPlayer(newPlayer.id, newPlayer.username)
-    toast.success(`Welcome, ${newPlayer.username}!`)
-
+    setPlayer(existing)
+    setLocalPlayer(existing.id, existing.username)
+    toast.success(`Welcome back, ${existing.username}!`)
     return {}
   }
 

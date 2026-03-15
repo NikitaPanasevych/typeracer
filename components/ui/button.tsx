@@ -19,6 +19,10 @@ const buttonVariants = cva(
         ghost:
           "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
         link: "text-primary underline-offset-4 hover:underline",
+        "apex-primary": "[background:var(--apex-gold)] [color:#07080D] [box-shadow:0_0_20px_rgba(240,180,41,0.25)] hover:brightness-110 active:scale-[0.985]",
+        "apex-ghost": "bg-transparent border [border-color:var(--apex-border-bright)] [color:var(--apex-text)] hover:opacity-75 active:scale-[0.985]",
+        "apex-muted": "bg-transparent border [border-color:var(--apex-border)] [color:var(--apex-text-dim)] hover:opacity-75 active:scale-[0.985]",
+        "apex-ghost-sm": "p-0 bg-transparent text-[11px] font-semibold tracking-[0.15em] uppercase hover:opacity-60",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",
@@ -29,6 +33,8 @@ const buttonVariants = cva(
         "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
         "icon-sm": "size-8",
         "icon-lg": "size-10",
+        action: "w-full flex items-center justify-between px-6 py-4 rounded-lg font-semibold tracking-[0.18em] uppercase text-sm font-mono",
+        none: "h-auto p-0",
       },
     },
     defaultVariants: {

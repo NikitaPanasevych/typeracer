@@ -1,34 +1,48 @@
 'use client'
 
 import { useState } from 'react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 
 type Props = {
   open: boolean
-  onJoin: (username: string) => Promise<{ error?: string }>
+  onJoin: (username: string, password: string, mode: 'signup' | 'signin') => Promise<{ error?: string }>
+  onClose?: () => void
 }
 
-export function JoinModal({ open, onJoin }: Props) {
+export function JoinModal({ open, onJoin, onClose }: Props) {
+  const [mode, setMode] = useState<'signup' | 'signin'>('signup')
   const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  if (!open) return null
+  const canSubmit = username.trim() && password.length >= 6
 
   async function handleSubmit() {
     setError('')
     setIsSubmitting(true)
-    const result = await onJoin(username)
+    const result = await onJoin(username, password, mode)
     if (result.error) setError(result.error)
     setIsSubmitting(false)
   }
 
+  function switchMode() {
+    setMode(m => m === 'signup' ? 'signin' : 'signup')
+    setError('')
+  }
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(7, 8, 13, 0.85)', backdropFilter: 'blur(12px)' }}
-    >
-      <div
-        className="w-full max-w-sm animate-slide-up relative overflow-hidden rounded-xl"
+    <Dialog open={open} onOpenChange={(o) => !o && onClose?.()}>
+      <DialogContent
+        className="max-w-sm p-0 gap-0 overflow-hidden rounded-xl"
         style={{
           background: 'var(--apex-surface)',
           border: '1px solid rgba(240,180,41,0.2)',
@@ -40,79 +54,83 @@ export function JoinModal({ open, onJoin }: Props) {
           style={{ background: 'linear-gradient(90deg, transparent, var(--apex-gold), transparent)' }}
         />
 
-        <div className="px-8 pt-8 pb-2">
-          <p
-            className="text-xs font-semibold tracking-[0.25em] uppercase mb-1"
-            style={{ color: 'var(--apex-gold)' }}
-          >
-            TypeRacer
-          </p>
-          <h1
-            className="font-display leading-none"
+        <DialogHeader className="px-8 pt-8 pb-2 gap-3 text-left">
+          <p className="apex-section-cap" style={{ color: 'var(--apex-gold)' }}>TypeRacer</p>
+          <DialogTitle
+            className="font-display leading-none text-left"
             style={{ fontSize: '3.5rem', color: 'var(--apex-text)' }}
           >
-            ENTER THE RACE
-          </h1>
-          <p className="mt-3 text-sm" style={{ color: 'var(--apex-text-dim)' }}>
-            Choose your callsign. Returning racer? Use your old name to restore your stats.
+            {mode === 'signup' ? 'ENTER THE RACE' : 'WELCOME BACK'}
+          </DialogTitle>
+          <DialogDescription
+            className="text-sm text-left"
+            style={{ color: 'var(--apex-text-dim)' }}
+          >
+            {mode === 'signup'
+              ? 'Create your account to start racing and track your stats.'
+              : 'Sign in to restore your stats and rejoin the race.'}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="px-8 pt-6 pb-8 space-y-3">
+          <Input
+            type="text"
+            placeholder="e.g. ghost_typer"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            maxLength={20}
+            autoFocus
+            className="font-mono tracking-[0.05em]"
+            style={{
+              background: 'var(--apex-surface-2)',
+              border: '1px solid var(--apex-border-bright)',
+              color: 'var(--apex-text)',
+            }}
+          />
+
+          <Input
+            type="password"
+            placeholder="Password (min. 6 characters)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !isSubmitting && canSubmit && handleSubmit()}
+            className="font-mono tracking-[0.05em]"
+            style={{
+              background: 'var(--apex-surface-2)',
+              border: '1px solid var(--apex-border-bright)',
+              color: 'var(--apex-text)',
+            }}
+          />
+
+          {error && (
+            <p className="text-xs animate-fade-in" style={{ color: 'var(--apex-red)' }}>
+              {error}
+            </p>
+          )}
+
+          <Button
+            variant="apex-primary"
+            onClick={handleSubmit}
+            disabled={isSubmitting || !canSubmit}
+            className="w-full py-3 rounded-lg tracking-wider uppercase"
+          >
+            {isSubmitting
+              ? (mode === 'signup' ? 'Creating account…' : 'Signing in…')
+              : (mode === 'signup' ? 'Create Account →' : 'Sign In →')}
+          </Button>
+
+          <p className="text-center text-xs" style={{ color: 'var(--apex-text-dim)' }}>
+            {mode === 'signup' ? 'Already have an account?' : "Don't have an account?"}{' '}
+            <button
+              onClick={switchMode}
+              className="underline transition-opacity hover:opacity-60"
+              style={{ color: 'var(--apex-gold)' }}
+            >
+              {mode === 'signup' ? 'Sign in' : 'Sign up'}
+            </button>
           </p>
         </div>
-
-        <div className="px-8 pt-6 pb-8 space-y-4">
-          <div>
-            <input
-              type="text"
-              placeholder="e.g. ghost_typer"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && !isSubmitting && username.trim() && handleSubmit()}
-              maxLength={20}
-              autoFocus
-              className="w-full px-4 py-3 rounded-lg text-sm outline-none transition-all duration-200"
-              style={{
-                background: 'var(--apex-surface-2)',
-                border: '1px solid var(--apex-border-bright)',
-                color: 'var(--apex-text)',
-                fontFamily: 'var(--font-space), monospace',
-                letterSpacing: '0.05em',
-              }}
-              onFocus={(e) => {
-                e.target.style.border = '1px solid rgba(240,180,41,0.4)'
-                e.target.style.boxShadow = '0 0 0 3px rgba(240,180,41,0.08)'
-              }}
-              onBlur={(e) => {
-                e.target.style.border = '1px solid var(--apex-border-bright)'
-                e.target.style.boxShadow = 'none'
-              }}
-            />
-            {error && (
-              <p
-                className="mt-2 text-xs animate-fade-in"
-                style={{ color: 'var(--apex-red)' }}
-              >
-                {error}
-              </p>
-            )}
-          </div>
-
-          <button
-            onClick={handleSubmit}
-            disabled={isSubmitting || !username.trim()}
-            className="w-full py-3 rounded-lg font-semibold text-sm tracking-wider uppercase transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{
-              background: username.trim() && !isSubmitting
-                ? 'var(--apex-gold)'
-                : 'rgba(240,180,41,0.3)',
-              color: username.trim() && !isSubmitting ? '#07080D' : 'rgba(240,180,41,0.6)',
-              boxShadow: username.trim() && !isSubmitting
-                ? '0 0 20px rgba(240,180,41,0.25)'
-                : 'none',
-            }}
-          >
-            {isSubmitting ? 'Joining race…' : 'Start Racing →'}
-          </button>
-        </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

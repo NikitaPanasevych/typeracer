@@ -1,5 +1,11 @@
 import Link from 'next/link'
-import { getHistoricalRounds } from '@/lib/db/results'
+import { redirect } from 'next/navigation'
+import { getHistoricalRoundsForPlayer } from '@/lib/db/results'
+import { getPlayerById } from '@/lib/db/players'
+import { createClient } from '@/lib/supabase/server'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 import type { HistoricalRound } from '@/types'
 
 const MEDALS = ['🥇', '🥈', '🥉']
@@ -11,8 +17,8 @@ function RoundCard({ round, index }: { round: HistoricalRound; index: number }) 
   const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 
   return (
-    <div
-      className="rounded-lg overflow-hidden animate-fade-in"
+    <Card
+      className="gap-0 p-0 py-0 rounded-lg overflow-hidden animate-fade-in shadow-none border-0"
       style={{
         border: '1px solid var(--apex-border)',
         background: 'var(--apex-surface)',
@@ -24,8 +30,8 @@ function RoundCard({ round, index }: { round: HistoricalRound; index: number }) 
         style={{ background: 'var(--apex-surface-2)', borderBottom: '1px solid var(--apex-border)' }}
       >
         <p
-          className="text-xs leading-relaxed flex-1 truncate"
-          style={{ color: 'var(--apex-text-dim)', fontFamily: 'var(--font-space), monospace' }}
+          className="text-xs leading-relaxed flex-1 truncate font-mono"
+          style={{ color: 'var(--apex-text-dim)' }}
         >
           {round.sentence}
         </p>
@@ -39,8 +45,8 @@ function RoundCard({ round, index }: { round: HistoricalRound; index: number }) 
 
       {round.results.length === 0 ? (
         <p
-          className="px-5 py-4 text-xs tracking-wider uppercase"
-          style={{ color: 'var(--apex-text-dim)', fontFamily: 'var(--font-space), monospace' }}
+          className="px-5 py-4 text-xs tracking-wider uppercase font-mono"
+          style={{ color: 'var(--apex-text-dim)' }}
         >
           No results recorded
         </p>
@@ -55,8 +61,8 @@ function RoundCard({ round, index }: { round: HistoricalRound; index: number }) 
                 {i < 3 ? MEDALS[i] : i + 1}
               </span>
               <span
-                className="flex-1 text-sm font-medium truncate"
-                style={{ color: 'var(--apex-text)', fontFamily: 'var(--font-space), monospace' }}
+                className="flex-1 text-sm font-medium truncate font-mono"
+                style={{ color: 'var(--apex-text)' }}
               >
                 {r.username}
               </span>
@@ -72,16 +78,10 @@ function RoundCard({ round, index }: { round: HistoricalRound; index: number }) 
               >
                 {Math.round(r.accuracy * 100)}%
               </span>
-              <span
-                className="text-[10px] font-semibold tracking-wider uppercase shrink-0 px-2 py-0.5 rounded-full"
-                style={
-                  r.finishedTyping
-                    ? { background: 'rgba(52,211,153,0.1)', color: 'var(--apex-green)', border: '1px solid rgba(52,211,153,0.25)' }
-                    : { background: 'rgba(240,180,41,0.08)', color: 'var(--apex-gold)', border: '1px solid rgba(240,180,41,0.2)' }
-                }
-              >
-                {r.finishedTyping ? 'Done' : 'DNF'}
-              </span>
+              {r.finishedTyping
+                ? <Badge variant="apex-done" className="shrink-0">Done</Badge>
+                : <Badge variant="apex-dnf" className="shrink-0">DNF</Badge>
+              }
             </div>
           ))}
           {round.results.length > 5 && (
@@ -94,7 +94,7 @@ function RoundCard({ round, index }: { round: HistoricalRound; index: number }) 
           )}
         </div>
       )}
-    </div>
+    </Card>
   )
 }
 
@@ -103,22 +103,30 @@ export default async function HistoryPage({
 }: {
   searchParams: Promise<{ page?: string }>
 }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/')
+
+  const player = await getPlayerById(user.id)
+  if (!player) redirect('/')
+
   const params = await searchParams
   const page = Math.max(1, parseInt(params.page ?? '1', 10))
-  const { rounds, total } = await getHistoricalRounds(page, PER_PAGE)
+  const { rounds, total } = await getHistoricalRoundsForPlayer(player.id, page, PER_PAGE)
   const totalPages = Math.ceil(total / PER_PAGE)
 
   return (
     <main className="min-h-screen px-6 py-10 max-w-4xl mx-auto">
       <header className="mb-10 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link
-            href="/"
-            className="text-[11px] font-semibold tracking-[0.2em] uppercase transition-opacity hover:opacity-60"
-            style={{ color: 'var(--apex-text-dim)', fontFamily: 'var(--font-space), monospace' }}
+          <Button
+            variant="apex-ghost-sm"
+            size="none"
+            asChild
+            style={{ color: 'var(--apex-text-dim)' }}
           >
-            ← Lobby
-          </Link>
+            <Link href="/">← Lobby</Link>
+          </Button>
           <div className="w-px h-5" style={{ background: 'var(--apex-border-bright)' }} />
           <div>
             <p
@@ -137,25 +145,25 @@ export default async function HistoryPage({
         </div>
 
         <span
-          className="text-xs font-semibold tracking-[0.15em] uppercase"
-          style={{ color: 'var(--apex-text-dim)', fontFamily: 'var(--font-space), monospace' }}
+          className="text-xs font-semibold tracking-[0.15em] uppercase font-mono"
+          style={{ color: 'var(--apex-text-dim)' }}
         >
           {total} rounds
         </span>
       </header>
 
       {rounds.length === 0 ? (
-        <div
-          className="flex items-center justify-center py-20 rounded-lg"
+        <Card
+          className="flex-row items-center justify-center py-20 rounded-lg gap-0 shadow-none border-0"
           style={{ border: '1px solid var(--apex-border)', background: 'var(--apex-surface)' }}
         >
           <p
-            className="text-sm tracking-[0.2em] uppercase"
-            style={{ color: 'var(--apex-text-dim)', fontFamily: 'var(--font-space), monospace' }}
+            className="text-sm tracking-[0.2em] uppercase font-mono"
+            style={{ color: 'var(--apex-text-dim)' }}
           >
             No completed rounds yet
           </p>
-        </div>
+        </Card>
       ) : (
         <div className="space-y-4">
           {rounds.map((round, i) => (
@@ -169,30 +177,28 @@ export default async function HistoryPage({
           {page > 1 && (
             <Link
               href={`/history?page=${page - 1}`}
-              className="px-4 py-2 rounded text-xs font-semibold tracking-[0.15em] uppercase transition-opacity hover:opacity-70"
+              className="px-4 py-2 rounded text-xs font-semibold tracking-[0.15em] uppercase transition-opacity hover:opacity-70 font-mono"
               style={{
                 border: '1px solid var(--apex-border-bright)',
                 color: 'var(--apex-text)',
-                fontFamily: 'var(--font-space), monospace',
               }}
             >
               ← Prev
             </Link>
           )}
           <span
-            className="px-4 py-2 text-xs font-semibold tracking-[0.15em] uppercase"
-            style={{ color: 'var(--apex-text-dim)', fontFamily: 'var(--font-space), monospace' }}
+            className="px-4 py-2 text-xs font-semibold tracking-[0.15em] uppercase font-mono"
+            style={{ color: 'var(--apex-text-dim)' }}
           >
             {page} / {totalPages}
           </span>
           {page < totalPages && (
             <Link
               href={`/history?page=${page + 1}`}
-              className="px-4 py-2 rounded text-xs font-semibold tracking-[0.15em] uppercase transition-opacity hover:opacity-70"
+              className="px-4 py-2 rounded text-xs font-semibold tracking-[0.15em] uppercase transition-opacity hover:opacity-70 font-mono"
               style={{
                 border: '1px solid var(--apex-border-bright)',
                 color: 'var(--apex-text)',
-                fontFamily: 'var(--font-space), monospace',
               }}
             >
               Next →

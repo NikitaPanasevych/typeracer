@@ -11,6 +11,8 @@ import {
 import { useQueryState } from 'nuqs'
 import { useMemo, useState } from 'react'
 import { useGameStore } from '@/lib/store/gameStore'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 import type { LeaderboardRow } from '@/types'
 
 const MEDALS = ['🥇', '🥈', '🥉']
@@ -121,28 +123,12 @@ export function Leaderboard({ localPlayerId }: Props) {
         enableSorting: false,
         cell: (info) =>
           info.getValue() ? (
-            <span
-              className="inline-flex items-center gap-1 text-xs font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full"
-              style={{
-                background: 'rgba(52,211,153,0.1)',
-                color: 'var(--apex-green)',
-                border: '1px solid rgba(52,211,153,0.25)',
-              }}
-            >
-              Done
-            </span>
+            <Badge variant="apex-done">Done</Badge>
           ) : (
-            <span
-              className="inline-flex items-center gap-1 text-xs font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full"
-              style={{
-                background: 'rgba(240,180,41,0.08)',
-                color: 'var(--apex-gold)',
-                border: '1px solid rgba(240,180,41,0.2)',
-              }}
-            >
+            <Badge variant="apex-live">
               <span className="inline-block w-1 h-1 rounded-full bg-current animate-pulse" />
               Live
-            </span>
+            </Badge>
           ),
       }),
     ],
@@ -190,8 +176,8 @@ export function Leaderboard({ localPlayerId }: Props) {
         </div>
       </div>
 
-      <div
-        className="rounded-lg overflow-x-auto"
+      <Card
+        className="gap-0 p-0 py-0 rounded-lg overflow-x-auto shadow-none border-0"
         style={{ border: '1px solid var(--apex-border)', background: 'var(--apex-surface)' }}
       >
         <table className="w-full text-sm min-w-[480px]">
@@ -249,7 +235,7 @@ export function Leaderboard({ localPlayerId }: Props) {
             })}
           </tbody>
         </table>
-      </div>
+      </Card>
     </div>
   )
 }
