@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { unstable_cache } from 'next/cache'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import type { Player } from '@/types'
 
 function mapToPlayer(row: {
@@ -35,6 +36,19 @@ export async function getPlayerById(id: string): Promise<Player | null> {
   if (error || !data) return null
   return mapToPlayer(data)
 }
+
+async function fetchPlayerById(id: string): Promise<Player | null> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase.from('players').select('*').eq('id', id).single()
+  if (error || !data) return null
+  return mapToPlayer(data)
+}
+
+export const getCachedPlayerById = unstable_cache(
+  fetchPlayerById,
+  ['player-by-id'],
+  { revalidate: 30, tags: ['player'] }
+)
 
 export async function createPlayer(username: string, userId: string): Promise<Player | null> {
   const supabase = await createClient()

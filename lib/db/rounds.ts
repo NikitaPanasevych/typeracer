@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { unstable_cache } from 'next/cache'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import type { Round } from '@/types'
 
 export async function getCurrentRound(): Promise<Round | null> {
@@ -55,6 +56,34 @@ export async function finishRound(roundId: string): Promise<void> {
   const supabase = await createClient()
   await supabase.from('rounds').update({ status: 'finished' }).eq('id', roundId)
 }
+
+async function fetchCurrentRound(): Promise<Round | null> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('rounds')
+    .select('*, sentences(text)')
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (error || !data) return null
+
+  return {
+    id: data.id,
+    sentence: (data.sentences as { text: string }).text,
+    sentenceId: data.sentence_id,
+    startedAt: data.started_at,
+    endsAt: data.ends_at,
+    status: data.status as 'active' | 'finished',
+  }
+}
+
+export const getCachedCurrentRound = unstable_cache(
+  fetchCurrentRound,
+  ['current-round'],
+  { revalidate: 5, tags: ['round'] }
+)
 
 export async function getRandomSentenceId(): Promise<string | null> {
   const supabase = await createClient()

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as Sentry from '@sentry/nextjs'
-import { getPlayerByUsername, getPlayerById, createPlayer } from '@/lib/db/players'
+import { getPlayerByUsername, getCachedPlayerById, createPlayer } from '@/lib/db/players'
 import { createAdminClient } from '@/lib/supabase/server'
+import { signupRatelimit } from '@/lib/ratelimit'
 
 export async function GET(req: NextRequest) {
   const username = req.nextUrl.searchParams.get('username')
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (id) {
-    const player = await getPlayerById(id)
+    const player = await getCachedPlayerById(id)
     return NextResponse.json({ player })
   }
 
@@ -21,6 +22,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for') ?? 'unknown'
+  const { success } = await signupRatelimit.limit(ip)
+  if (!success) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   const { username, password } = await req.json()
 
   if (!username?.trim()) return NextResponse.json({ error: 'username required' }, { status: 400 })

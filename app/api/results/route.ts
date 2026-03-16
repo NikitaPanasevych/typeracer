@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import * as Sentry from '@sentry/nextjs'
 import { upsertRoundResult } from '@/lib/db/results'
 import { updatePlayerStats } from '@/lib/db/players'
 import { createClient } from '@/lib/supabase/server'
+import { resultsRatelimit } from '@/lib/ratelimit'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -29,6 +31,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  const { success } = await resultsRatelimit.limit(user.id)
+  if (!success) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   if (typeof wpm !== 'number' || !Number.isFinite(wpm) || wpm < 0 || wpm > 300) {
     return NextResponse.json({ error: 'wpm must be a number between 0 and 300' }, { status: 400 })
   }
@@ -44,6 +51,7 @@ export async function POST(req: NextRequest) {
   try {
     await upsertRoundResult({ roundId, playerId, wpm, accuracy, finishedTyping })
     await updatePlayerStats(playerId, wpm, accuracy)
+    revalidateTag('player')
     return NextResponse.json({ ok: true })
   } catch (err) {
     Sentry.captureException(err)

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { pusherServer } from '@/lib/pusher/server'
 import { createClient } from '@/lib/supabase/server'
-import { getPlayerById } from '@/lib/db/players'
+import { getCachedPlayerById } from '@/lib/db/players'
 import { withSentry } from '@/lib/api/withSentry'
 
 const handler = async (req: NextRequest): Promise<NextResponse> => {
@@ -21,7 +21,7 @@ const handler = async (req: NextRequest): Promise<NextResponse> => {
     return NextResponse.json({ error: 'Missing socket_id or channel_name' }, { status: 400 })
   }
 
-  const player = await getPlayerById(user.id)
+  const player = await getCachedPlayerById(user.id)
 
   const auth = pusherServer.authorizeChannel(socketId, channelName, {
     user_id: user.id,

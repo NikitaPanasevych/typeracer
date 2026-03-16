@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import * as Sentry from '@sentry/nextjs'
 import { getCurrentRound, createNewRound, finishRound, getRandomSentenceId } from '@/lib/db/rounds';
 import { pusherServer } from '@/lib/pusher/server';
@@ -25,8 +26,8 @@ export async function GET(req: NextRequest) {
 			return NextResponse.json({ error: 'Failed to create round' }, { status: 500 });
 		}
 
+		revalidateTag('round');
 		await pusherServer.trigger('game', 'round_changed', { roundId: newRound.id });
-		console.log(`[advance-round] New round created: ${newRound.id}`);
 		return NextResponse.json({ round: newRound }, { status: 200 });
 	} catch (error) {
 		Sentry.captureException(error);

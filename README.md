@@ -8,11 +8,13 @@ A real-time multiplayer typing competition. Players join a shared round, race to
 | ------------- | --------------------------- | --------------------------------------------------------------------------------------- |
 | Framework     | Next.js 16 (App Router)     | Full-stack TypeScript, API routes, Vercel-native deployment                             |
 | Database      | Supabase (PostgreSQL)       | Managed Postgres with generated TypeScript types, RLS, migrations                       |
-| Real-time     | Pusher                      | Low-latency broadcast for live typing updates; simpler than maintaining WebSocket infra |
+| Auth          | Supabase Auth               | Cookie-based JWT sessions via `@supabase/ssr`; `auth.uid()` enforced on all writes      |
+| Real-time     | Pusher (presence channels)  | Low-latency broadcast for live typing updates; presence events handle disconnect cleanup |
 | Client state  | Zustand                     | Minimal, non-Redux store for ephemeral in-round player map                              |
 | Table         | TanStack Table v8           | Headless sorting, filtering, pagination — full control over markup                      |
 | URL state     | nuqs                        | Syncs sort column/direction to the URL so table state survives refresh                  |
 | UI primitives | shadcn/ui + Tailwind CSS v4 | Unstyled-but-accessible base, custom dark theme layered on top                          |
+| Monitoring    | Sentry                      | Client and server error tracking with user context; source maps uploaded at build time  |
 | Tests         | Vitest + jsdom              | Fast, Vite-native unit tests for pure game logic                                        |
 | Cron          | Vercel Cron                 | Serverless-native round advancement without a separate scheduler process                |
 
@@ -20,13 +22,17 @@ A real-time multiplayer typing competition. Players join a shared round, race to
 
 ## Features
 
-- **Real-time leaderboard** — every keystroke is broadcast via Pusher and reflected live in all connected clients
+- **Real-time leaderboard** — every keystroke is broadcast via Pusher presence channels and reflected live in all connected clients
 - **Fixed 60-second rounds** — a Vercel Cron job advances rounds automatically in production
 - **WPM & accuracy** — calculated client-side on every keystroke; only correctly completed words count toward WPM
-- **Persistent player stats** — total races, best WPM, average accuracy saved to Postgres; re-entering your username restores them
+- **Persistent player stats** — total races, best WPM, average accuracy saved to Postgres; signing in restores them
+- **Password-based accounts** — Supabase Auth backs every account; sessions are cookie-stored JWTs, synced across tabs on focus
 - **URL-synced table sort** — sort column and direction are written to `?sort=&dir=` so refreshing preserves state
-- **Loading & error states** — skeleton UI while data loads, toast notifications, and a Next.js `error.tsx` boundary
-- **Custom dark theme** — "Apex" design system with gold/green/red accents, animated countdown, blinking cursor, progress bar
+- **Race history** — `/history` page shows past rounds with sentence, timestamp, and per-round results; paginated 8 per page
+- **Spectator mode** — join as a read-only observer without claiming a player slot
+- **Loading & error states** — skeleton UI while data loads, toast notifications, Next.js `error.tsx` boundary, and a component-level `LeaderboardErrorBoundary` with retry
+- **Error monitoring** — Sentry captures all unhandled exceptions on client and server; errors are tagged with the current player's username and ID
+- **Custom dark/light theme** — "Apex" design system with gold/green/red accents, animated countdown, blinking cursor, progress bar; toggle persisted to `localStorage`
 
 ---
 
@@ -37,6 +43,7 @@ A real-time multiplayer typing competition. Players join a shared round, race to
 - Node.js 18+
 - A [Supabase](https://supabase.com) project (free tier is sufficient)
 - A [Pusher](https://pusher.com) app (free Sandbox plan is sufficient)
+- A [Sentry](https://sentry.io) project — Next.js type (free tier is sufficient; optional for local dev)
 
 ### 1. Install dependencies
 
@@ -48,7 +55,7 @@ npm install
 
 ### 2. Configure environment variables
 
-Create `.env.local` in the project root with the following keys:
+Create `.env.local` in the project root:
 
 ```env
 # Supabase
@@ -68,7 +75,20 @@ NEXT_PUBLIC_PUSHER_CLUSTER=<cluster>
 
 # Cron protection — any random secret string
 CRON_SECRET=<random-secret>
+
+# Upstash Redis (required for rate limiting)
+UPSTASH_REDIS_REST_URL=<upstash-redis-url>
+UPSTASH_REDIS_REST_TOKEN=<upstash-redis-token>
+
+# Sentry (optional locally — set enabled: true in sentry.client.config.ts to test)
+NEXT_PUBLIC_SENTRY_DSN=<dsn>
+SENTRY_DSN=<dsn>
+SENTRY_AUTH_TOKEN=<auth-token>
+SENTRY_ORG=<org-slug>
+SENTRY_PROJECT=<project-slug>
 ```
+
+Sentry is disabled in development (`NODE_ENV !== 'production'`) by default. To test it locally, temporarily set `enabled: true` in `sentry.client.config.ts`.
 
 ### 3. Apply the database schema
 
@@ -105,7 +125,7 @@ npm run dev
 Vercel Cron does not run locally. Trigger the first round manually:
 
 ```bash
-curl -X POST http://localhost:3000/api/cron/advance-round \
+curl -X GET http://localhost:3000/api/cron/advance-round \
   -H "x-cron-secret: <your-CRON_SECRET>"
 ```
 
@@ -145,7 +165,7 @@ Live state flows: client keystroke → `useTypingEngine` → throttled POST to `
 A Vercel Cron job calls `GET /api/cron/advance-round` every minute. The endpoint:
 
 1. Marks the current active round as `finished`
-2. Picks a random sentence
+2. Picks a random sentence via `get_random_sentence_id()` Postgres RPC
 3. Inserts a new round with `ends_at = now() + 60s`
 4. Triggers a `round_changed` Pusher event on the `game` channel
 
@@ -159,7 +179,36 @@ Pusher was chosen over Supabase Realtime because:
 - Pusher's arbitrary event/payload model maps directly to the `PlayerLiveState` type without any DB involvement
 - The Pusher free tier (200 concurrent connections, 200k messages/day) is sufficient for this scale
 
-Each round gets its own Pusher channel (`round-<roundId>`). When a round ends, clients naturally stop listening to the stale channel and subscribe to the new one — no explicit cleanup of old player states needed.
+Each round uses a Pusher **presence channel** (`presence-round-<roundId>`). Presence channels provide member tracking, which enables:
+
+- Immediate cleanup when a tab closes (`pusher:member_removed` → `removePlayer`)
+- Duplicate tab detection on `pusher:subscription_succeeded` (warns via toast if the same `user_id` is already present)
+
+The Pusher auth endpoint (`/api/pusher/auth`) signs each channel subscription with `auth.uid()` and the player's username, so member identity is server-verified.
+
+### Player identity & authentication
+
+Players create an account with a username and password. Under the hood:
+
+- A Supabase Auth user is created with email `<username>@typeracer.local` and the provided password
+- A corresponding row is inserted into the `players` table keyed on `auth.uid()`
+- The session is stored in a cookie via `@supabase/ssr` (`createBrowserClient`) — not `localStorage`
+
+On subsequent visits, `supabase.auth.getUser()` reads the cookie-stored JWT and restores the session. A `window.focus` listener in `usePlayer` re-runs this check whenever the tab regains focus, so signing in on Tab A is reflected in Tab B the next time it is focused.
+
+All server-side write endpoints verify `auth.uid() === playerId` before accepting data.
+
+### Error monitoring
+
+Sentry is initialised in three runtimes:
+
+- **Browser** — `sentry.client.config.ts` (via Next.js automatic instrumentation)
+- **Node.js server** — `sentry.server.config.ts` (via `instrumentation.ts`)
+- **Edge** — `sentry.edge.config.ts` (via `instrumentation.ts`)
+
+All `captureException` calls in API routes and client hooks tag the event with the current player's username and ID via `Sentry.setUser`, which is called in `usePlayer` on every login and cleared on logout. The `LeaderboardErrorBoundary` uses `componentDidCatch` to report component-level crashes and renders a "Leaderboard unavailable / Retry" fallback instead of a blank space.
+
+Sentry is disabled in development (`NODE_ENV !== 'production'`) to avoid noise.
 
 ### Client state
 
@@ -178,18 +227,9 @@ Using a `Map` (rather than an array) gives O(1) upsert on every incoming broadca
 - Records `startedAt` on the first keystroke
 - Recalculates WPM and accuracy on every change
 - Only completed and correctly typed words count toward WPM (in-progress word is excluded)
-- Accuracy = `correctChars / totalTyped` (0–1, rounded to 3 decimal places)
+- Accuracy = `correctChars / totalTyped` (0–1, rounded to 3 decimal places); defaults to `0` before the first keystroke
 
 All calculation functions live in `lib/game/calculations.ts` as pure functions so they are independently testable.
-
-### Player identity
-
-Username is the identity. On join, the username is looked up in the DB:
-
-- **Exists** → session restored, stats loaded
-- **Does not exist** → new player created
-
-The resolved player ID is stored in `localStorage` alongside the username. On subsequent visits, both values are read and the server is asked to confirm the ID still matches — if not, the stored session is cleared. No passwords or tokens are involved (see Limitations).
 
 ### URL-synced table state
 
@@ -197,104 +237,37 @@ The resolved player ID is stored in `localStorage` alongside the username. On su
 
 ---
 
-## Simplifications & Known Limitations
-
-**Authentication**
-Username = identity with no secret. Any user can join as any username that hasn't been taken. A production system would use Supabase Auth (anonymous sign-in or OAuth) and tie all write operations to `auth.uid()`.
-
-**No server-side write authorisation**
-`/api/typing-update` and `/api/results` accept any `playerId` from the request body without verifying the caller owns that ID. A player could submit results on behalf of another. The fix is a session token issued at player creation and validated server-side on every write. The current WPM > 300 guard is a single sanity check, not proper auth.
-
-**RLS policies are wide-open**
-All four tables have `using (true)` policies for inserts and updates. In production, these must be scoped to `auth.uid() = player.id`.
-
-**`updatePlayerStats` has a read-modify-write race**
-The function reads current stats, computes new values in application code, then writes back. Two simultaneous saves for the same player will produce a lost update. The fix is a Postgres function that does the increment atomically.
-
-**`getRandomSentenceId` loads all rows**
-Every round advance fetches all sentence IDs from the DB and samples client-side. Fine for 20 sentences, becomes a full table scan at scale. Fix: `SELECT id FROM sentences ORDER BY RANDOM() LIMIT 1`.
-
-**Cron does not run locally**
-Vercel Cron is cloud-only. Rounds must be advanced manually in local dev.
-
-**No disconnect detection**
-Players who close their tab remain in the leaderboard until the round ends and the player map resets. A production implementation would use Pusher presence channels with a heartbeat and timeout-based cleanup.
-
-**Countdown progress bar hardcoded to 60s**
-The visual progress bar in `Countdown.tsx` assumes a 60-second round. If the round duration is changed, the bar will be incorrect. It should derive the maximum from `round.startedAt` and `round.endsAt`.
-
-**Tests are unit-only**
-Only `lib/game/calculations.ts` is covered. There are no integration tests for API routes or E2E tests for the full player journey, as time was limited and focus was on the functional MVP.
-
-**Concurrent sessions with the same username**
-The same username can be opened in two different browsers simultaneously. Both sessions will share the same `playerId`, causing conflicting typing updates and corrupt live state on the leaderboard. A production fix would enforce single-session per player via a server-issued session token or Pusher presence channel membership check.
-
-**StatsCard does not react to external data changes**
-The `StatsCard` (persistent player stats: total races, best WPM, average accuracy) is only fetched once on join and is not updated when new results are saved to the database. If a round ends and `updatePlayerStats` writes new values, the card remains stale until the page is refreshed. A production system could use Server-Sent Events (SSE) or Supabase Realtime subscriptions to push DB-level changes to the client.
-
-**No logout functionality**
-Once a user joins, there is no way to log out or switch usernames without manually clearing `localStorage`. A logout button should clear the stored `typeracer_player_id` and `typeracer_username` keys and reset the Zustand store.
-
-**Accuracy defaults to 100% before typing**
-`calculateAccuracy` returns `1` (100%) when `totalTyped === 0`. This means a player who never types a single character appears with perfect accuracy. A more honest default would be `0` or `null` (displayed as "—") until the first keystroke.
-
-**No caching layer**
-Every API call hits Supabase directly with no intermediate cache. Frequently read data — the current round, sentence text, player profiles — could benefit from short-TTL caching (e.g. Vercel Data Cache, Upstash Redis, or Next.js `unstable_cache`) to reduce latency and database load.
-
-**No monitoring or observability**
-The application has no structured logging, metrics, or error tracking. Failures in API routes or Pusher broadcasts are only visible in Vercel function logs. A production deployment should include an APM tool (e.g. Sentry, Datadog) and structured logging (e.g. Pino) for both client and server.
-
-**No input validation on `/api/results`**
-`roundId`, `playerId`, `wpm`, `accuracy`, and `finishedTyping` are accepted without type or range validation. Unlike `/api/typing-update` (which has the WPM > 300 guard), this endpoint passes values directly to `upsertRoundResult`. A malicious caller could submit negative WPM, accuracy > 1, or invalid UUIDs.
-
-**`useRoundResults` can save stale values**
-The effect fires when `isRoundActive` flips to `false` or `isFinished` flips to `true`, but captures `wpm` and `accuracy` from the closure at that moment. If the round ends exactly while the player is mid-keystroke, the saved values may be one render cycle behind the latest.
-
-**No mobile / responsive support**
-The hidden `<input>` approach in `TypingInput.tsx` does not handle mobile virtual keyboards well. There is no touch-specific UX, and fixed-width elements like `StatsCard` cells (`min-w-[56px]`) will overflow on narrow screens.
-
-**Theme toggle is dead code**
-`useTheme.ts` implements a dark/light toggle with `localStorage` persistence, but it is never called from any component. The hook is unused dead code.
-
-**`Suspense` boundary has no fallback**
-In `page.tsx`, `<Suspense>` wraps the `Leaderboard` but provides no `fallback` prop, so there is no visible loading state while the component mounts.
-
-**Silent errors in `upsertRoundResult`**
-The Supabase `upsert` call in `lib/db/results.ts` does not check the response for errors. If the write fails, the error is silently swallowed and the player receives no feedback.
-
----
-
 ## What I Would Add With More Time
 
 ### Completed
 
-- ~~**Supabase anonymous auth**~~ replaced localStorage identity with `signInAnonymously()`; session persists via cookie-based JWT
-- ~~**RLS policies**~~ `players` table scoped to `auth.uid()`; insert and update restricted to the owning user
-- ~~**Atomic `updatePlayerStats`**~~ replaced read-modify-write with a Postgres function (`update_player_stats`) to eliminate the race condition
-- ~~**Session token on write endpoints**~~ `/api/typing-update` and `/api/results` now verify `auth.uid() === playerId`; returns 403 on mismatch
+- ~~**Supabase Auth**~~ username + password accounts backed by Supabase Auth; sessions stored in cookies via `@supabase/ssr`; `auth.uid()` enforced on all writes
+- ~~**Cross-tab session sync**~~ `window.focus` listener in `usePlayer` re-checks the session so signing in on one tab is reflected in others on next focus
+- ~~**RLS policies**~~ `players` table write policies scoped to `auth.uid()`
+- ~~**Atomic `updatePlayerStats`**~~ replaced read-modify-write with a Postgres RPC `update_player_stats` to eliminate the race condition
+- ~~**Session token on write endpoints**~~ `/api/typing-update` and `/api/results` verify `auth.uid() === playerId`; returns 403 on mismatch
 - ~~**Input validation on `/api/results`**~~ UUID format, `0 ≤ accuracy ≤ 1`, `0 ≤ wpm ≤ 300`, `boolean finishedTyping` all enforced
 - ~~**Stale round-end save**~~ `useRoundResults` reads `wpm`/`accuracy` from refs at call time instead of capturing stale closure values
-- ~~**Accuracy default**~~ `useTypingEngine` now initialises accuracy to `0` instead of `1`; no more phantom 100% before first keystroke
+- ~~**Accuracy default**~~ `useTypingEngine` initialises accuracy to `0`; no phantom 100% before first keystroke
 - ~~**Countdown hardcoded to 60s**~~ progress bar derives `totalSeconds` from `round.startedAt`/`round.endsAt`
 - ~~**`Suspense` fallback**~~ `LeaderboardSkeleton` provided as fallback to the `<Suspense>` wrapping `Leaderboard`
-- ~~**StatsCard staleness**~~ `refreshPlayer()` is called via `onSaved` callback after each round result saves
-- ~~**Wire up `useTheme`**~~ dark/light toggle button added to homepage and game page header
+- ~~**StatsCard staleness**~~ `refreshPlayer()` called via `onSaved` callback after each round result saves
+- ~~**Wire up `useTheme`**~~ dark/light toggle button in homepage and game page header
 - ~~**Disconnect detection**~~ presence channels fire `pusher:member_removed` on tab close; stale players removed immediately
-- ~~**Single-session enforcement**~~ `pusher:subscription_succeeded` detects the same `user_id` already present in the channel and warns via toast
-- ~~**Presence channels**~~ subscribed to `presence-round-{id}`; Pusher auth endpoint at `/api/pusher/auth` signs each subscription with `auth.uid()` and username
-- ~~**`ORDER BY RANDOM() LIMIT 1`**~~ replaced full table scan with a Postgres RPC `get_random_sentence_id()`
-- ~~**Mobile / responsive support**~~ typing input uses `opacity:0` positioning instead of `clip`-based `sr-only`; `inputMode="text"` and `onTouchEnd` focus for virtual keyboards; leaderboard table is horizontally scrollable
-- ~~**Historical leaderboard**~~ `/history` page (server component) shows past rounds with sentence, timestamp, and per-round results; paginated 8 per page
-- ~~**Logout**~~ sign-out button calls `supabase.auth.signOut()` and clears Zustand player state
-- ~~**Lobby / homepage**~~ dedicated `/` page with stats card, Enter Game Room, Watch as Spectator, and Race History actions; game moved to `/game`
+- ~~**Single-session warning**~~ `pusher:subscription_succeeded` detects the same `user_id` already in the channel and warns via toast
+- ~~**Presence channels**~~ subscribed to `presence-round-{id}`; Pusher auth endpoint signs subscriptions with `auth.uid()`
+- ~~**`ORDER BY RANDOM() LIMIT 1`**~~ replaced full table scan with Postgres RPC `get_random_sentence_id()`
+- ~~**Mobile / responsive support**~~ `opacity:0` hidden input, `inputMode="text"`, `onTouchEnd` focus; leaderboard horizontally scrollable
+- ~~**Historical leaderboard**~~ `/history` page (server component) with past rounds, pagination, Done/DNF badges
+- ~~**Logout**~~ sign-out button calls `supabase.auth.signOut()` and clears Zustand + Sentry user context
+- ~~**Lobby / homepage**~~ dedicated `/` page with stats card, Enter Game Room, Watch as Spectator, Race History
+- ~~**Error monitoring**~~ Sentry integrated across browser, Node, and edge runtimes; `captureException` on all error paths; user context tagged on login/logout; `LeaderboardErrorBoundary` reports crashes and shows a retry fallback
+- ~~**No monitoring or observability**~~ Sentry captures and aggregates all unhandled errors in production with readable stack traces via source map upload
+- ~~**Caching layer**~~ `unstable_cache` wraps `getCurrentRound` (5 s TTL, `round` tag) and `getPlayerById` (30 s TTL, `player` tag); `revalidateTag` called on round advance and after stats save
+- ~~**Rate limiting**~~ Upstash Ratelimit with sliding-window limits on `/api/typing-update` (30 req / 10 s per user), `/api/results` (5 req / 60 s per user), and `/api/players` POST (5 req / hour per IP)
 
 ### Still To Do
-
-- **Caching layer** — hot reads (current round, sentences, player profiles) hit Supabase on every request; short-TTL caching via `unstable_cache` or Upstash Redis would reduce latency and DB load
-- **Rate limiting** — no per-IP or per-user limits on any API route; add via Upstash Ratelimit or Vercel Edge middleware
-- **Monitoring & observability** — no structured logging or error tracking; add Sentry for client/server errors, Pino for server logs, and Vercel Analytics or Datadog for APM
 - **Playwright E2E tests** — no integration coverage; a full join → type → finish → leaderboard flow across two browser sessions would catch regressions the unit tests miss
 - **CI/CD pipeline** — no automated checks on PRs; GitHub Actions running `tsc --noEmit`, ESLint, and `vitest run` would prevent broken code from reaching `main`
-- **Cron in local dev** — Vercel Cron is cloud-only; rounds must be advanced manually; a local `scripts/advance-round.ts` helper or `watch` script would remove the friction
 
 ---

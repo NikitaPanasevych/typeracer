@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import * as Sentry from '@sentry/nextjs'
-import { getCurrentRound } from '@/lib/db/rounds'
+import { getCachedCurrentRound } from '@/lib/db/rounds'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const round = await getCurrentRound()
+    const round = await getCachedCurrentRound()
 
     if (!round) {
       return NextResponse.json({ round: null }, { status: 200 })
