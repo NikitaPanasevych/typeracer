@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 			return NextResponse.json({ error: 'Failed to create round' }, { status: 500 });
 		}
 
-		revalidateTag('round');
+		revalidateTag('round', { expire: 0 });
 		await pusherServer.trigger('game', 'round_changed', { roundId: newRound.id });
 		return NextResponse.json({ round: newRound }, { status: 200 });
 	} catch (error) {

@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   try {
     await upsertRoundResult({ roundId, playerId, wpm, accuracy, finishedTyping })
     await updatePlayerStats(playerId, wpm, accuracy)
-    revalidateTag('player')
+    revalidateTag('player', { expire: 0 })
     return NextResponse.json({ ok: true })
   } catch (err) {
     Sentry.captureException(err)
