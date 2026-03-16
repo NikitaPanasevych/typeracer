@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import * as Sentry from '@sentry/nextjs'
 import { getCurrentRound } from '@/lib/db/rounds'
 
 export const dynamic = 'force-dynamic'
@@ -13,7 +14,7 @@ export async function GET() {
 
     return NextResponse.json({ round }, { status: 200 })
   } catch (error) {
-    console.error('[GET /api/round/current]', error)
+    Sentry.captureException(error)
     return NextResponse.json({ error: 'Failed to fetch current round' }, { status: 500 })
   }
 }

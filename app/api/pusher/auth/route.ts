@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { pusherServer } from '@/lib/pusher/server'
 import { createClient } from '@/lib/supabase/server'
 import { getPlayerById } from '@/lib/db/players'
+import { withSentry } from '@/lib/api/withSentry'
 
-export async function POST(req: NextRequest) {
+const handler = async (req: NextRequest): Promise<NextResponse> => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -29,3 +30,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json(auth)
 }
+
+export const POST = withSentry(handler)

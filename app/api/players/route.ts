@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import * as Sentry from '@sentry/nextjs'
 import { getPlayerByUsername, getPlayerById, createPlayer } from '@/lib/db/players'
 import { createAdminClient } from '@/lib/supabase/server'
 
@@ -36,11 +37,13 @@ export async function POST(req: NextRequest) {
   })
 
   if (authError || !authData.user) {
+    Sentry.captureException(authError ?? new Error('createUser returned no user'))
     return NextResponse.json({ error: authError?.message ?? 'Failed to create account' }, { status: 500 })
   }
 
   const player = await createPlayer(username.trim(), authData.user.id)
   if (!player) {
+    Sentry.captureException(new Error('createPlayer returned null'))
     await admin.auth.admin.deleteUser(authData.user.id)
     return NextResponse.json({ error: 'Failed to create player' }, { status: 500 })
   }

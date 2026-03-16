@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useGameStore } from '@/lib/store/gameStore'
 import { createClient } from '@/lib/supabase/client'
+import { setSentryUser, clearSentryUser } from '@/lib/sentry'
 import type { Player } from '@/types'
 
 type PlayerHookState = {
@@ -33,10 +34,12 @@ export function usePlayer(): PlayerHookState {
         if (existing) {
           setPlayer(existing)
           setLocalPlayer(existing.id, existing.username)
+          setSentryUser(existing.id, existing.username)
         }
       } else {
         setPlayer(null)
         clearLocalPlayer()
+        clearSentryUser()
       }
 
       setIsLoading(false)
@@ -83,6 +86,7 @@ export function usePlayer(): PlayerHookState {
       const { player: newPlayer } = await res.json()
       setPlayer(newPlayer)
       setLocalPlayer(newPlayer.id, newPlayer.username)
+      setSentryUser(newPlayer.id, newPlayer.username)
       toast.success(`Welcome, ${newPlayer.username}!`)
       return {}
     }
@@ -102,6 +106,7 @@ export function usePlayer(): PlayerHookState {
 
     setPlayer(existing)
     setLocalPlayer(existing.id, existing.username)
+    setSentryUser(existing.id, existing.username)
     toast.success(`Welcome back, ${existing.username}!`)
     return {}
   }
@@ -120,6 +125,7 @@ export function usePlayer(): PlayerHookState {
     await supabase.auth.signOut()
     setPlayer(null)
     clearLocalPlayer()
+    clearSentryUser()
   }
 
   return {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs'
 import { getCurrentRound, createNewRound, finishRound, getRandomSentenceId } from '@/lib/db/rounds';
 import { pusherServer } from '@/lib/pusher/server';
 
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
 		console.log(`[advance-round] New round created: ${newRound.id}`);
 		return NextResponse.json({ round: newRound }, { status: 200 });
 	} catch (error) {
-		console.error('[advance-round]', error);
+		Sentry.captureException(error);
 		return NextResponse.json({ error: 'Internal error' }, { status: 500 });
 	}
 }

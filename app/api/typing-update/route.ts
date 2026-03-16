@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import * as Sentry from '@sentry/nextjs'
 import { pusherServer } from '@/lib/pusher/server'
 import { presenceRoundChannel, PUSHER_EVENTS } from '@/lib/pusher/constants'
 import { createClient } from '@/lib/supabase/server'
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
     await pusherServer.trigger(presenceRoundChannel(roundId), PUSHER_EVENTS.PLAYER_UPDATE, payload)
     return NextResponse.json({ ok: true })
   } catch (error) {
-    console.error('[typing-update]', error)
+    Sentry.captureException(error)
     return NextResponse.json({ error: 'Failed to broadcast update' }, { status: 500 })
   }
 }

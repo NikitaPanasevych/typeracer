@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useCallback } from 'react'
+import * as Sentry from '@sentry/nextjs'
 import { toast } from 'sonner'
 import { pusherClient } from '@/lib/pusher/client'
 import { presenceRoundChannel, PUSHER_EVENTS } from '@/lib/pusher/constants'
@@ -37,7 +38,7 @@ export function useRealtimePlayers({ roundId, localPlayerState }: Props) {
             body: JSON.stringify({ ...state, roundId: currentRoundId }),
           })
         } catch (err) {
-          console.error('[useRealtimePlayers] Failed to send update:', err)
+          Sentry.captureException(err)
         }
       }, 150)
     },

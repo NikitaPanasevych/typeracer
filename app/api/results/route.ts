@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import * as Sentry from '@sentry/nextjs'
 import { upsertRoundResult } from '@/lib/db/results'
 import { updatePlayerStats } from '@/lib/db/players'
 import { createClient } from '@/lib/supabase/server'
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
     await updatePlayerStats(playerId, wpm, accuracy)
     return NextResponse.json({ ok: true })
   } catch (err) {
+    Sentry.captureException(err)
     const message = err instanceof Error ? err.message : 'Internal server error'
     return NextResponse.json({ error: message }, { status: 500 })
   }

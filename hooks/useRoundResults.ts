@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import * as Sentry from '@sentry/nextjs'
 import { toast } from 'sonner'
 
 type Props = {
@@ -48,6 +49,6 @@ export function useRoundResults({ roundId, playerId, isRoundActive, wpm, accurac
       }),
     })
       .then((res) => { if (res.ok) onSavedRef.current?.() })
-      .catch(() => { toast.error('Failed to save results') })
+      .catch((err) => { Sentry.captureException(err); toast.error('Failed to save results') })
   }, [isRoundActive, isFinished, roundId, playerId])
 }
